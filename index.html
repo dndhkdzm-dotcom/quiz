@@ -1,0 +1,930 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#1e3fe0">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns=%27http://www.w3.org/2000/svg%27 viewBox=%270 0 32 32%27%3E%3Crect width=%2732%27 height=%2732%27 rx=%277%27 fill=%27%231e3fe0%27/%3E%3Cpath d=%27M16 6 26 24H6z%27 fill=%27%23ffd43b%27/%3E%3C/svg%3E">
+<title>퀴즈 아레나</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Black+Han+Sans&family=Noto+Sans+KR:wght@400;500;700;900&display=swap">
+<style>
+/*
+VOICE: 왁자지껄한 TV 퀴즈쇼 — 크고 확실하게, 멀리서도 한눈에
+IDEA: 무대 조명 아래 놓인 퀴즈쇼 세트와 4색 버저 패널
+PICTURE: 무대 위 대형 문제 카드, 빨강·하늘·노랑·초록 도형 버저
+COLOUR and TYPE: 코발트 무대 + 흰 카드 + 노랑 진행 버튼 / Black Han Sans + Noto Sans KR
+LAYOUT: 무대(문제)가 화면 대부분, 진행 패널은 옆(넓을 때)·아래(폰)
+*/
+:root{
+  --stage:#1e3fe0;--stage2:#1834c4;--stage3:#0f2287;
+  --ink:#141a33;--mute:#5b6380;--line:#e1e5f2;--soft:#f2f4fb;
+  --a0:#ef3e55;--a1:#0ea5e9;--a2:#fbbf24;--a3:#22c55e;
+  --ok:#16a34a;--bad:#e11d48;--go:#ffd43b;
+  --disp:'Black Han Sans','Noto Sans KR','Noto Sans CJK KR',system-ui,sans-serif;
+  --body:'Noto Sans KR','Noto Sans CJK KR',system-ui,-apple-system,'Apple SD Gothic Neo','Malgun Gothic',sans-serif;
+}
+*{box-sizing:border-box;min-width:0}
+html,body{min-height:100%}
+body{margin:0;font:16px/1.55 var(--body);color:#fff;background:var(--stage);overflow-x:hidden;-webkit-tap-highlight-color:transparent;word-break:keep-all;overflow-wrap:anywhere}
+body::before{content:"";position:fixed;inset:0;pointer-events:none;z-index:0;background:
+ radial-gradient(110% 60% at 50% -8%,rgba(255,255,255,.24),transparent 62%),
+ radial-gradient(circle at 1px 1px,rgba(255,255,255,.10) 1.3px,transparent 1.7px) 0 0/22px 22px}
+#app{position:relative;z-index:1}
+h1,h2,h3,h4{margin:0;font-weight:700}
+button{font:inherit;cursor:pointer;color:inherit}
+input,textarea,select{font:inherit;font-size:16px}
+:focus-visible{outline:3px solid var(--go);outline-offset:2px}
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;min-height:48px;padding:0 20px;border:0;border-radius:14px;background:#fff;color:var(--ink);font-weight:700;box-shadow:0 4px 0 rgba(0,0,0,.18);transition:transform .08s;text-decoration:none;white-space:nowrap}
+.btn:active{transform:translateY(2px);box-shadow:0 2px 0 rgba(0,0,0,.18)}
+.btn.pri{background:var(--ink);color:#fff}
+.btn.go{background:var(--go);color:var(--ink);box-shadow:0 5px 0 #c99a00}
+.btn.line{background:#fff;color:var(--ink);box-shadow:inset 0 0 0 2px var(--line)}
+.btn.ghost{background:transparent;color:#fff;box-shadow:inset 0 0 0 2px rgba(255,255,255,.55)}
+.btn.danger{color:var(--bad)}
+.btn.sm{min-height:40px;padding:0 14px;border-radius:11px;font-size:14px}
+.btn.big{min-height:60px;font-size:19px;border-radius:16px;width:100%}
+.btn.full{width:100%}
+.btn[disabled]{opacity:.4;pointer-events:none}
+.hint{font-size:13px;color:var(--mute);margin:6px 0 0}
+.opt{font-weight:400;color:var(--mute)}
+.spin{display:inline-block;width:22px;height:22px;border-radius:50%;border:3px solid rgba(0,0,0,.12);border-top-color:var(--stage);animation:rot .8s linear infinite;vertical-align:middle}
+.spin.w{border-color:rgba(255,255,255,.25);border-top-color:#fff;width:42px;height:42px;border-width:4px}
+@keyframes rot{to{transform:rotate(360deg)}}
+@keyframes pop{from{transform:scale(.4);opacity:0}}
+@keyframes pulse{50%{transform:scale(1.08)}}
+.dot{display:inline-block;width:9px;height:9px;border-radius:50%;background:#aab2d4;flex:none}
+.dot.on{background:#22c55e;box-shadow:0 0 0 3px rgba(34,197,94,.22)}
+/* modal & toast */
+.modal{position:fixed;inset:0;z-index:50;background:rgba(6,12,48,.62);display:grid;place-items:center;padding:20px}
+.mbox{background:#fff;color:var(--ink);border-radius:20px;padding:24px;width:min(420px,100%);box-shadow:0 10px 0 var(--stage3)}
+.mbox h3{font:400 26px var(--disp);margin-bottom:6px}
+.mbox p{margin:0 0 14px;color:var(--mute)}
+.mrow{display:flex;gap:10px;justify-content:flex-end;margin-top:16px}
+.err{color:var(--bad);font-size:14px;min-height:20px;margin:8px 0 0}
+.zoom{background:none;border:0;padding:0;max-width:96vw;max-height:92vh}
+.zoom img{max-width:96vw;max-height:92vh;display:block;border-radius:10px;background:#fff}
+#toast{position:fixed;left:50%;bottom:24px;transform:translateX(-50%);z-index:60;display:flex;flex-direction:column;gap:8px;align-items:center;pointer-events:none;width:max-content;max-width:92vw}
+.toast{background:var(--ink);color:#fff;padding:12px 18px;border-radius:12px;font-weight:500;box-shadow:0 8px 20px rgba(0,0,0,.3);text-align:center}
+/* landing */
+.land{min-height:100vh;min-height:100dvh;display:grid;place-items:center;padding:28px 18px}
+.land-in{width:min(440px,100%);text-align:center}
+.tiles{display:flex;justify-content:center;gap:10px;margin-bottom:22px}
+.tile{width:54px;height:54px;border-radius:14px;display:grid;place-items:center;box-shadow:0 5px 0 rgba(0,0,0,.22);animation:pop .5s cubic-bezier(.3,1.6,.5,1) both}
+.tile:nth-child(2){animation-delay:.08s}.tile:nth-child(3){animation-delay:.16s}.tile:nth-child(4){animation-delay:.24s}
+.tile svg{width:28px;height:28px}
+.logo{font:400 clamp(46px,13vw,76px)/1 var(--disp);text-shadow:0 6px 0 var(--stage3)}
+.logo small{display:block;font:500 17px var(--body);opacity:.9;margin-top:14px;text-shadow:none}
+.joinbox{margin-top:28px;background:#fff;color:var(--ink);border-radius:22px;padding:22px;box-shadow:0 10px 0 var(--stage3);display:grid;gap:12px;text-align:left}
+.joinbox .l{font-weight:700;font-size:15px}
+.bigin{width:100%;height:62px;border:2px solid var(--line);border-radius:14px;text-align:center;font:400 30px var(--disp);letter-spacing:4px;color:var(--ink);background:#fff}
+.bigin.name{font:700 22px var(--body);letter-spacing:0}
+.admin-link{margin-top:22px;background:none;border:0;color:#fff;opacity:.85;text-decoration:underline;min-height:44px;padding:0 10px}
+/* admin bar */
+.abar{position:sticky;top:0;z-index:10;display:flex;align-items:center;gap:10px 14px;flex-wrap:wrap;padding:10px max(3vw,14px);background:var(--stage3)}
+.brand{font:400 22px var(--disp)}
+.tabs{display:flex;gap:4px;background:rgba(255,255,255,.12);padding:4px;border-radius:12px}
+.tab{min-height:40px;padding:0 16px;border:0;border-radius:9px;background:transparent;color:#fff;font-weight:700}
+.tab.on{background:#fff;color:var(--ink)}
+.spacer{flex:1}
+.netst{display:inline-flex;align-items:center;gap:7px;font-size:13px;opacity:.95;white-space:nowrap}
+/* editor */
+.edit{display:grid;grid-template-columns:300px minmax(0,1fr);gap:18px;padding:18px max(3vw,14px) 40px;max-width:1280px;margin:0 auto;align-items:start}
+.panel{background:#fff;color:var(--ink);border-radius:18px;padding:16px;box-shadow:0 6px 0 var(--stage3)}
+.qlist{position:sticky;top:76px;display:grid;gap:10px}
+#qitems{display:grid;gap:4px;max-height:52vh;overflow:auto}
+.item{display:flex;align-items:center;gap:10px;padding:6px;border-radius:12px;border:2px solid transparent;width:100%;background:none;text-align:left;color:var(--ink)}
+.item.on{border-color:var(--stage);background:#eef1ff}
+.num{font:400 18px var(--disp);color:var(--stage);width:26px;flex:none;text-align:center}
+.thumb{width:62px;height:44px;border-radius:8px;background:var(--soft) center/cover no-repeat;flex:none;display:grid;place-items:center;font-size:11px;color:var(--mute)}
+.item .tx{font-size:14px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.io{display:flex;gap:8px}.io .btn{flex:1}
+.qe-head{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:16px}
+.qe-head h2{font:400 28px var(--disp);margin-right:auto}
+.qe-tools{display:flex;gap:6px;flex-wrap:wrap}
+.grid2{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:22px}
+.field{margin-bottom:18px}
+.l{display:block;font-weight:700;font-size:14px;margin-bottom:6px}
+.inp{width:100%;min-height:46px;border:2px solid var(--line);border-radius:12px;padding:10px 12px;color:var(--ink);background:#fff}
+textarea.inp{min-height:74px;resize:vertical}
+.slotwrap{display:grid;gap:8px;justify-items:start}
+.slot{display:grid;place-items:center;width:100%;min-height:170px;border:2px dashed #b4bde3;border-radius:14px;background:var(--soft);cursor:pointer;overflow:hidden;text-align:center;color:var(--mute);padding:10px;font-size:14px}
+.slot b{color:var(--stage);font-size:16px}
+.slot img{max-width:100%;max-height:320px;display:block;border-radius:8px}
+.slot.drag{border-color:var(--stage);background:#e6ebff}
+.seg{display:inline-flex;flex-wrap:wrap;background:var(--soft);padding:4px;border-radius:12px;gap:4px}
+.seg button{min-height:40px;padding:0 14px;border:0;border-radius:9px;background:transparent;font-weight:700;color:var(--mute)}
+.seg button.on{background:#fff;color:var(--ink);box-shadow:0 1px 4px rgba(0,0,0,.14)}
+.lrow{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:10px}
+.lrow .l{margin:0 auto 0 0}
+.chrow{display:flex;align-items:center;gap:8px;margin-bottom:8px}
+.chb{width:44px;height:44px;border-radius:11px;display:grid;place-items:center;flex:none;color:#fff}
+.chb svg{width:22px;height:22px}
+.okb{min-height:44px;padding:0 12px;border-radius:11px;border:2px solid var(--line);background:#fff;font-size:14px;font-weight:700;color:var(--mute);white-space:nowrap;flex:none}
+.okb.on{border-color:var(--ok);background:#ecfdf3;color:var(--ok)}
+/* play layout */
+.play{display:grid;grid-template-columns:minmax(0,1fr) 370px;gap:18px;padding:18px max(2.5vw,14px) 40px;max-width:1500px;margin:0 auto;align-items:start}
+.ctrl{display:grid;gap:14px;position:sticky;top:76px}
+.ctrl h4{font-size:15px;margin-bottom:8px}
+.actions{display:grid;gap:10px}
+.pinrow{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:12px;font-size:15px;flex-wrap:wrap}
+.pinrow b{font:400 24px var(--disp);letter-spacing:2px;margin-left:4px}
+.lnk{color:var(--stage);font-weight:700;font-size:14px;min-height:44px;display:inline-flex;align-items:center}
+.h4row{display:flex;align-items:flex-start;gap:8px;justify-content:space-between;margin-bottom:4px}
+.corr{margin:0 0 6px;font-size:14px;background:#ecfdf3;color:#166534;border-radius:10px;padding:8px 10px;font-weight:700}
+.arow{display:grid;grid-template-columns:minmax(0,1fr) auto auto;gap:8px;align-items:center;padding:9px 0;border-bottom:1px solid var(--line)}
+.who{font-weight:700;display:flex;align-items:center;gap:7px}
+.what{font-size:14px;color:var(--mute);overflow-wrap:anywhere;display:flex;align-items:center;gap:6px;flex-wrap:wrap}
+.what .t{font-size:12px;opacity:.8}
+.mini{width:22px;height:22px;border-radius:6px;display:inline-grid;place-items:center;flex:none}
+.mini svg{width:12px;height:12px}
+.judge{min-height:40px;min-width:72px;border-radius:10px;border:0;font-weight:700;font-size:14px;display:inline-grid;place-items:center}
+.judge.y{background:#dcfce7;color:#166534}.judge.n{background:#ffe4e6;color:#9f1239}.judge.w{background:var(--soft);color:var(--mute)}
+.pts{font:400 17px var(--disp);width:56px;text-align:right;font-variant-numeric:tabular-nums}
+.srow{display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid var(--line)}
+.srow:last-child,.arow:last-child{border-bottom:0}
+.srow .rk{font:400 18px var(--disp);color:var(--stage);width:24px;text-align:center}
+.srow .nm{flex:1;font-weight:700}
+.srow .sc{font:400 18px var(--disp);font-variant-numeric:tabular-nums}
+.kick{min-height:36px;border:0;border-radius:9px;background:var(--soft);color:var(--mute);font-size:13px;padding:0 10px}
+.ctrl-foot{display:flex;justify-content:flex-end;align-items:center;gap:10px;flex-wrap:wrap}
+.lnk2{color:#fff;font-size:14px;font-weight:700;opacity:.9;min-height:44px;display:inline-flex;align-items:center;margin-right:auto}
+.empty-play{max-width:560px;margin:8vh auto;padding:0 16px}
+.empty-play h2{font:400 32px var(--disp);margin-bottom:8px}
+.empty-play p{color:var(--mute);margin:0 0 18px}
+/* stage */
+.stg{display:flex;flex-direction:column;gap:16px}
+.lobby{display:grid;gap:24px}
+.joincard{display:flex;gap:clamp(18px,3vw,40px);align-items:center;background:#fff;color:var(--ink);border-radius:24px;padding:22px;box-shadow:0 10px 0 var(--stage3)}
+.qr{width:clamp(190px,min(26vw,40vh),330px);aspect-ratio:1;flex:none}
+.qr svg{width:100%;height:100%;display:block}
+.jl{font:400 clamp(22px,2.4vw,32px)/1.2 var(--disp);color:var(--stage)}
+.jk{font-size:16px;color:var(--mute);margin:8px 0 14px}
+.pin{font:400 clamp(52px,7vw,112px)/1 var(--disp);letter-spacing:3px;white-space:nowrap}
+.url{font-size:14px;color:var(--mute);word-break:break-all;margin-top:8px}
+.warn{margin-top:10px;font-size:13px;background:#fff4d6;color:#7a5400;padding:8px 10px;border-radius:10px}
+.roster h3{font:400 28px var(--disp);margin-bottom:12px}
+.roster h3 b{font-weight:400;color:var(--go)}
+.chips{display:flex;flex-wrap:wrap;gap:10px}
+.chip{background:#fff;color:var(--ink);padding:10px 18px;border-radius:999px;font-weight:700;font-size:19px;animation:pop .35s cubic-bezier(.3,1.6,.5,1) both}
+.chips .none{opacity:.8}
+.qhead{display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+.qno{font:400 22px var(--disp);background:rgba(255,255,255,.16);padding:6px 16px;border-radius:999px}
+.sttl{font:400 34px var(--disp)}
+.sttl.big{font-size:clamp(40px,6vw,64px);text-align:center;text-shadow:0 5px 0 var(--stage3)}
+.tag{font-weight:700;padding:6px 14px;border-radius:999px;background:var(--ok)}
+.timer{font:400 34px/1 var(--disp);width:74px;height:74px;border-radius:50%;background:#fff;color:var(--ink);display:grid;place-items:center;box-shadow:0 5px 0 var(--stage3)}
+.timer.low{background:var(--go);animation:pulse 1s infinite}
+.qcnt{margin-left:auto;font-weight:700;font-size:18px;white-space:nowrap}
+.qcnt b{font:400 40px/1 var(--disp);color:var(--go);margin-right:2px}
+.qcard{background:#fff;color:var(--ink);border-radius:22px;padding:14px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;box-shadow:0 10px 0 var(--stage3);min-height:200px}
+.qimg{max-width:100%;max-height:max(170px,calc(100vh - 430px));object-fit:contain;border-radius:12px;display:block}
+.screen .qimg{max-height:max(190px,calc(100vh - 390px))}
+.qcard.small .qimg{max-height:max(150px,calc(100vh - 520px))}
+.screen .qcard.small .qimg{max-height:max(160px,calc(100vh - 450px))}
+.qtext{font:700 clamp(20px,2.4vw,32px)/1.3 var(--body);text-align:center;text-wrap:balance}
+.qcard.small .qtext{font-size:clamp(17px,1.8vw,22px)}
+.imgload{display:flex;align-items:center;gap:10px;color:var(--mute);padding:40px}
+.legend{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}
+.legend.n3>:last-child{grid-column:span 2}
+.ans{position:relative;display:flex;align-items:center;gap:14px;min-height:70px;padding:12px 18px;border-radius:16px;color:#fff;font-weight:700;font-size:clamp(18px,1.9vw,25px);box-shadow:0 6px 0 rgba(0,0,0,.22);transition:opacity .3s}
+.ans>span{flex:1;overflow-wrap:anywhere}
+.ans svg{width:32px;height:32px;flex:none}
+.ans em{font-style:normal;font:400 24px var(--disp);background:rgba(0,0,0,.18);padding:2px 12px;border-radius:999px}
+.ans.dim{opacity:.32}
+.ans.right{box-shadow:0 0 0 5px #fff,0 8px 0 5px rgba(0,0,0,.2)}
+.ans.c2,.ans.c2 em{color:var(--ink)}
+.typein{text-align:center;font-weight:700;font-size:20px;background:rgba(255,255,255,.14);border-radius:16px;padding:16px}
+.reveal{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:16px;align-items:stretch}
+.reveal.solo{grid-template-columns:minmax(0,1fr)}
+.ansbox{background:#fff;color:var(--ink);border-radius:22px;padding:18px;box-shadow:0 10px 0 var(--stage3);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:12px;text-align:center}
+.albl{background:var(--ok);color:#fff;font-weight:700;padding:5px 14px;border-radius:999px;font-size:15px}
+.atext{font:400 clamp(28px,3.4vw,50px)/1.15 var(--disp);overflow-wrap:anywhere;text-wrap:balance}
+.tlist{display:flex;flex-wrap:wrap;gap:10px}
+.tans{display:inline-flex;align-items:baseline;gap:8px;padding:9px 16px;border-radius:14px;background:#fff;color:var(--ink);font-size:18px;box-shadow:0 4px 0 rgba(0,0,0,.18)}
+.tans b{font-size:14px;color:var(--mute)}
+.tans.ok{background:#dcfce7;color:#14532d}.tans.bad{background:#ffe4e6;color:#881337}.tans.none{opacity:.75}
+.board{background:#fff;color:var(--ink);border-radius:22px;padding:6px 20px;box-shadow:0 10px 0 var(--stage3)}
+.brow{display:flex;align-items:center;gap:14px;padding:12px 2px;border-bottom:1px solid var(--line)}
+.brow:last-child{border-bottom:0}
+.brow .rk{font:400 26px var(--disp);width:40px;text-align:center;color:var(--stage)}
+.brow.top .rk{color:var(--ink);background:var(--go);border-radius:50%;width:40px;height:40px;display:grid;place-items:center;font-size:22px}
+.brow .nm{flex:1;font-weight:700;font-size:20px;overflow-wrap:anywhere}
+.brow .dl{font-size:15px;color:var(--ok);font-weight:700;white-space:nowrap}
+.brow .sc{font:400 28px var(--disp);font-variant-numeric:tabular-nums;white-space:nowrap}
+.podium{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));align-items:end;gap:12px;max-width:760px;width:100%;margin:10px auto 0}
+.pod{text-align:center}
+.pod .who2{font:700 clamp(17px,2vw,24px)/1.2 var(--body);overflow-wrap:anywhere;margin-bottom:4px}
+.pod .pp{font:400 20px var(--disp);opacity:.9;margin-bottom:8px}
+.pod .blk{border-radius:16px 16px 0 0;background:#fff;color:var(--ink);display:grid;place-items:center;font:400 46px var(--disp);box-shadow:inset 0 -12px 0 rgba(0,0,0,.08)}
+.pod.p1 .blk{height:210px;background:var(--go)}.pod.p2 .blk{height:150px}.pod.p3 .blk{height:110px;background:#ffd9c2}
+.screen{padding:clamp(14px,2.5vw,36px);max-width:1500px;margin:0 auto}
+.waitscr{min-height:80vh;display:grid;place-items:center;text-align:center;gap:10px}
+/* player */
+.ph{min-height:100vh;min-height:100dvh;display:flex;flex-direction:column;padding:max(12px,env(safe-area-inset-top)) 14px max(16px,env(safe-area-inset-bottom));max-width:640px;margin:0 auto}
+.ptop{display:flex;align-items:center;gap:8px;margin-bottom:12px;min-height:40px}
+.me{background:rgba(255,255,255,.16);padding:6px 12px;border-radius:999px;font-weight:700;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:46%}
+.pins{font-size:13px;opacity:.8;white-space:nowrap}
+.mysc{margin-left:auto;font:400 22px var(--disp);white-space:nowrap}
+.center{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;gap:12px;padding:10px 0}
+.center h2{font:400 clamp(32px,9vw,44px)/1.1 var(--disp)}
+.center p{margin:0;opacity:.92;font-size:17px}
+.bigic{width:86px;height:86px;border-radius:50%;background:#fff;color:var(--stage);display:grid;place-items:center;box-shadow:0 6px 0 var(--stage3)}
+.bigic svg{width:48px;height:48px}
+.dots{display:flex;gap:8px;margin-top:6px}
+.dots i{width:12px;height:12px;border-radius:50%;background:#fff;opacity:.35;animation:blink 1.2s infinite}
+.dots i:nth-child(2){animation-delay:.2s}.dots i:nth-child(3){animation-delay:.4s}
+@keyframes blink{40%{opacity:1}}
+.pform{width:100%;background:#fff;color:var(--ink);border-radius:22px;padding:20px;box-shadow:0 10px 0 var(--stage3);display:grid;gap:12px;text-align:left}
+.pbar{height:10px;border-radius:99px;background:rgba(255,255,255,.2);overflow:hidden;margin:0 0 12px}
+.pbar i{display:block;height:100%;width:100%;background:var(--go);border-radius:99px;transition:width .25s linear}
+.pq{background:#fff;color:var(--ink);border-radius:18px;padding:10px;box-shadow:0 7px 0 var(--stage3);display:grid;gap:8px}
+.pqn{font:400 16px var(--disp);color:var(--stage);padding:0 4px}
+.pimgb{border:0;padding:0;background:var(--soft);border-radius:10px;display:block;width:100%}
+.pimg{width:100%;max-height:36vh;object-fit:contain;border-radius:10px;display:block}
+.ptext{font-weight:700;font-size:18px;line-height:1.35;padding:0 4px 4px}
+.ptap{font-size:12px;color:var(--mute);padding:0 4px}
+.pbtns{display:grid;grid-template-columns:1fr 1fr;gap:12px;flex:1;margin-top:16px;min-height:230px}
+.pbtns.n3>:last-child{grid-column:span 2}
+.pbtn{border:0;border-radius:18px;color:#fff;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;font-weight:700;font-size:18px;box-shadow:0 6px 0 rgba(0,0,0,.24);padding:10px;min-height:104px;overflow-wrap:anywhere}
+.pbtn:active{transform:translateY(3px);box-shadow:0 3px 0 rgba(0,0,0,.24)}
+.pbtn svg{width:46px;height:46px}
+.pbtn.c2{color:var(--ink)}
+.ptype{display:grid;gap:12px;margin-top:16px}
+.ptype input{width:100%;height:62px;border:0;border-radius:16px;padding:0 16px;font-size:22px;font-weight:700;color:var(--ink);text-align:center}
+.result{width:100%;border-radius:24px;padding:24px 16px;text-align:center;box-shadow:0 8px 0 rgba(0,0,0,.2)}
+.result.ok{background:var(--ok)}.result.bad{background:var(--bad)}.result.none{background:#4b5372}
+.result h2{font:400 46px/1.05 var(--disp);margin:4px 0}
+.result .plus{font:400 28px var(--disp)}
+.result .ic{width:56px;height:56px}
+.pans{width:100%;background:#fff;color:var(--ink);border-radius:20px;padding:14px;display:grid;gap:8px;justify-items:center;box-shadow:0 7px 0 var(--stage3)}
+.pans .albl{font-size:13px}
+.pans .atext{font-size:30px}
+.pans img{max-width:100%;max-height:30vh;border-radius:10px}
+.mine{font-size:14px;color:var(--mute)}
+.rankbig{font:400 64px/1 var(--disp);color:var(--go);text-shadow:0 5px 0 var(--stage3)}
+.plist{width:100%;background:#fff;color:var(--ink);border-radius:18px;padding:4px 14px;text-align:left;overflow:hidden}
+.plist .srow.me2{background:#fff6cf;margin:0 -14px;padding:8px 14px}
+/* 발표 모드 (노트북 전체 화면) */
+body.present .abar,body.present .ctrl{display:none}
+body.present .play{grid-template-columns:minmax(0,1fr);padding:clamp(14px,2.5vw,36px);max-width:1500px}
+body.present .qimg{max-height:max(190px,calc(100vh - 390px))}
+body.present .qcard.small .qimg{max-height:max(160px,calc(100vh - 450px))}
+.pexit{position:fixed;top:12px;right:12px;z-index:30;opacity:0;transition:opacity .2s}
+.pexit:hover,.pexit:focus-visible{opacity:1}
+.rqr{width:180px;margin:6px auto 4px}.rqr.big{width:min(300px,70vw)}.rqr svg{width:100%;height:auto;display:block}
+.netst.dark{color:var(--mute)}
+.srow .rd{font-size:13px;font-weight:700;color:var(--ok);margin-right:6px;white-space:nowrap}
+.brow .sc.zero{opacity:.35}
+.qcnt.sm{font-size:15px;font-weight:500;opacity:.85}
+.h2s{font:400 26px var(--disp);margin-bottom:6px}
+.empty-play .panel+.panel{margin-top:16px}
+.rjoin{display:grid;gap:10px}
+/* 휴대폰 리모컨 */
+.rbar{position:sticky;top:0;z-index:10;display:flex;align-items:center;gap:10px;padding:max(10px,env(safe-area-inset-top)) 14px 10px;background:var(--stage3)}
+.rm{padding:14px 14px 40px;max-width:640px;margin:0 auto;display:grid;gap:14px}
+.rm .center{min-height:70vh}
+.rph{font:400 30px/1.1 var(--disp)}
+.rq{font-weight:700;color:var(--mute);margin-top:4px}
+.rqt{font-size:15px;margin-top:6px}
+.rinfo{display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap;margin:10px 0 6px;font-weight:700}
+.rinfo b{font:400 22px var(--disp);color:var(--stage)}
+.rall{margin:0 0 8px;font-weight:700;color:#7a5400;background:#fff4d6;border-radius:10px;padding:8px 10px;font-size:14px}
+.rcard .actions{margin-top:12px}
+@media(max-width:1100px){.play{grid-template-columns:minmax(0,1fr)}.ctrl{position:static}}
+@media(max-width:860px){.edit{grid-template-columns:minmax(0,1fr)}.qlist{position:static}#qitems{max-height:none}.lobby{grid-template-columns:minmax(0,1fr)}}
+@media(max-width:700px){.grid2,.reveal{grid-template-columns:minmax(0,1fr)}.joincard{flex-direction:column;text-align:center}.qr{width:min(240px,70vw)}.timer{width:60px;height:60px;font-size:28px}.ans{min-height:56px;font-size:17px}.brow .nm{font-size:17px}.brow .sc{font-size:22px}}
+@media(prefers-reduced-motion:reduce){*,*::before{animation:none!important;transition:none!important}}
+</style>
+</head>
+<body>
+<div id="app"></div>
+<div id="modal"></div>
+<div id="toast" aria-live="polite"></div>
+<script>
+{
+'use strict';
+/* ===== 설정 ===== */
+const ADMIN_HASH='4r97o2';            // 관리자 코드(000311)의 해시값
+const MAX=12;                         // 최대 참가 인원
+const TOPIC='qarena-k7';              // 공개 서버에서 이 사이트가 쓰는 채널 이름
+const BROKERS=['wss://broker.emqx.io:8084/mqtt','wss://broker.hivemq.com:8884/mqtt','wss://test.mosquitto.org:8081/mqtt'];
+const Q=new URLSearchParams(location.search);
+const LOCAL=Q.get('net')==='local';
+const CUSTOM=(Q.get('broker')||'').split(',').map(s=>s.trim()).filter(s=>/^wss?:\/\//.test(s));
+const COLORS=['var(--a0)','var(--a1)','var(--a2)','var(--a3)'];
+const SHAPES=['<path d="M16 3 30.5 28.5H1.5z"/>','<path d="M16 1.5 30.5 16 16 30.5 1.5 16z"/>','<circle cx="16" cy="16" r="13.5"/>','<rect x="3" y="3" width="26" height="26" rx="3"/>'];
+const TIMES=[5,10,15,20,30,45,60,90,120,0];
+const CHECK='<svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 12.5 9.5 18 20 6.5" fill="none" stroke="currentColor" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round"/></svg>';
+const CROSS='<svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18" fill="none" stroke="currentColor" stroke-width="3.2" stroke-linecap="round"/></svg>';
+const app=document.getElementById('app');
+
+/* ===== 도구 ===== */
+const $=(s,r=document)=>r.querySelector(s);
+const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+function uid(n=10){const a='abcdefghijkmnpqrstuvwxyz23456789';let s='';for(const x of crypto.getRandomValues(new Uint8Array(n)))s+=a[x%a.length];return s;}
+function hash(s){let h=0x811c9dc5;for(let i=0;i<s.length;i++){h^=s.charCodeAt(i);h=Math.imul(h,0x01000193);}return(h>>>0).toString(36);}
+const shape=k=>`<svg viewBox="0 0 32 32" fill="currentColor" aria-hidden="true">${SHAPES[k]}</svg>`;
+const fg=k=>k===2?'var(--ink)':'#fff';
+const fmtPin=p=>String(p).replace(/(\d{3})(\d{3})/,'$1 $2');
+const num=n=>Number(n||0).toLocaleString('ko-KR');
+const store={get(k,d){try{const v=localStorage.getItem(k);return v==null?d:JSON.parse(v);}catch(e){return d;}},set(k,v){try{localStorage.setItem(k,JSON.stringify(v));}catch(e){}},del(k){try{localStorage.removeItem(k);}catch(e){}}};
+const ss={get(k){try{return sessionStorage.getItem(k);}catch(e){return null;}},set(k,v){try{sessionStorage.setItem(k,v);}catch(e){}},del(k){try{sessionStorage.removeItem(k);}catch(e){}}};
+const idb=(()=>{let p;const open=()=>p||(p=new Promise((res,rej)=>{const r=indexedDB.open('quizarena',1);r.onupgradeneeded=()=>r.result.createObjectStore('kv');r.onsuccess=()=>res(r.result);r.onerror=()=>rej(r.error);}));
+  return{async get(k){try{const db=await open();return await new Promise((res,rej)=>{const t=db.transaction('kv').objectStore('kv').get(k);t.onsuccess=()=>res(t.result);t.onerror=()=>rej(t.error);});}catch(e){return undefined;}},
+  async set(k,v){try{const db=await open();await new Promise((res,rej)=>{const tx=db.transaction('kv','readwrite');tx.objectStore('kv').put(v,k);tx.oncomplete=res;tx.onerror=()=>rej(tx.error);tx.onabort=()=>rej(tx.error);});return true;}catch(e){console.warn(e);return false;}}};})();
+function toast(msg,ms=2600){const t=document.createElement('div');t.className='toast';t.textContent=msg;$('#toast').appendChild(t);setTimeout(()=>t.remove(),ms);}
+function modal(html,onAct){const m=$('#modal');m.innerHTML=`<div class="modal">${html}</div>`;const close=()=>{m.innerHTML='';m.onclick=null;};
+  m.onclick=e=>{const b=e.target.closest('[data-m]');if(b){if(onAct&&onAct(b.dataset.m)===false)return;close();}else if(e.target.classList.contains('modal'))close();};return close;}
+function confirmBox(title,text,ok,fn){modal(`<div class="mbox" role="dialog" aria-modal="true"><h3>${esc(title)}</h3><p>${esc(text)}</p><div class="mrow"><button class="btn line" data-m="no">취소</button><button class="btn pri" data-m="ok">${esc(ok)}</button></div></div>`,a=>{if(a==='ok')fn();});}
+function zoom(src){if(src)modal(`<button class="zoom" data-m="x" aria-label="닫기"><img src="${src}" alt="확대한 이미지"></button>`);}
+const baseUrl=()=>location.href.split(/[?#]/)[0];
+function extra(){const p=new URLSearchParams();if(LOCAL)p.set('net','local');if(CUSTOM.length)p.set('broker',CUSTOM.join(','));const s=p.toString();return s?'&'+s:'';}
+const joinUrl=pin=>baseUrl()+'?pin='+pin+extra();
+const screenUrl=pin=>joinUrl(pin)+'&view=screen';
+
+/* ===== QR코드 (바이트 모드, 오류정정 M, 버전 1~10) ===== */
+const QR=(()=>{
+  const ECC=[0,10,16,26,18,24,16,18,22,22,26],BLK=[0,1,1,1,2,2,4,4,4,5,5];
+  const raw=v=>{let r=(16*v+128)*v+64;if(v>=2){const n=Math.floor(v/7)+2;r-=(25*n-10)*n-55;if(v>=7)r-=36;}return r;};
+  const mul=(x,y)=>{let z=0;for(let i=7;i>=0;i--){z=(z<<1)^((z>>>7)*0x11D);z^=((y>>>i)&1)*x;}return z;};
+  const divisor=d=>{const r=new Array(d).fill(0);r[d-1]=1;let root=1;for(let i=0;i<d;i++){for(let j=0;j<d;j++){r[j]=mul(r[j],root);if(j+1<d)r[j]^=r[j+1];}root=mul(root,2);}return r;};
+  const remainder=(data,div)=>{const r=div.map(()=>0);for(const b of data){const f=b^r.shift();r.push(0);div.forEach((c,i)=>{r[i]^=mul(c,f);});}return r;};
+  const maskBit=(m,x,y)=>{switch(m){case 0:return(x+y)%2===0;case 1:return y%2===0;case 2:return x%3===0;case 3:return(x+y)%3===0;case 4:return(Math.floor(x/3)+Math.floor(y/2))%2===0;case 5:return x*y%2+x*y%3===0;case 6:return(x*y%2+x*y%3)%2===0;default:return((x+y)%2+x*y%3)%2===0;}};
+  function make(text){
+    const data=[...new TextEncoder().encode(text)];let ver=1,cap=0;
+    for(;ver<=10;ver++){cap=(raw(ver)>>3)-ECC[ver]*BLK[ver];if(4+(ver<10?8:16)+data.length*8<=cap*8)break;}
+    if(ver>10)return null;
+    const bits=[];const put=(v,n)=>{for(let i=n-1;i>=0;i--)bits.push((v>>>i)&1);};
+    put(4,4);put(data.length,ver<10?8:16);data.forEach(b=>put(b,8));
+    put(0,Math.min(4,cap*8-bits.length));put(0,(8-bits.length%8)%8);
+    const bytes=[];for(let i=0;i<bits.length;i+=8){let b=0;for(let j=0;j<8;j++)b=(b<<1)|bits[i+j];bytes.push(b);}
+    for(let p=0xEC;bytes.length<cap;p^=0xEC^0x11)bytes.push(p);
+    const nb=BLK[ver],el=ECC[ver],rc=raw(ver)>>3,ns=nb-rc%nb,sl=Math.floor(rc/nb),dv=divisor(el),blocks=[];
+    let k=0;for(let i=0;i<nb;i++){const len=sl-el+(i<ns?0:1);const dat=bytes.slice(k,k+len);k+=len;const e=remainder(dat,dv);if(i<ns)dat.push(0);blocks.push(dat.concat(e));}
+    const cw=[];for(let i=0;i<blocks[0].length;i++)blocks.forEach((b,j)=>{if(i!==sl-el||j>=ns)cw.push(b[i]);});
+    const N=ver*4+17,M=[...Array(N)].map(()=>new Array(N).fill(false)),F=[...Array(N)].map(()=>new Array(N).fill(false));
+    const set=(x,y,d)=>{M[y][x]=d;F[y][x]=true;};
+    for(let i=0;i<N;i++){set(6,i,i%2===0);set(i,6,i%2===0);}
+    const finder=(cx,cy)=>{for(let dy=-4;dy<=4;dy++)for(let dx=-4;dx<=4;dx++){const x=cx+dx,y=cy+dy;if(x<0||y<0||x>=N||y>=N)continue;const d=Math.max(Math.abs(dx),Math.abs(dy));set(x,y,d!==2&&d!==4);}};
+    finder(3,3);finder(N-4,3);finder(3,N-4);
+    const al=[];if(ver>1){const n=Math.floor(ver/7)+2,step=Math.floor((ver*8+n*3+5)/(n*4-4))*2;al.push(6);for(let p=N-7;al.length<n;p-=step)al.splice(1,0,p);}
+    al.forEach((ax,i)=>al.forEach((ay,j)=>{if((i===0&&j===0)||(i===0&&j===al.length-1)||(i===al.length-1&&j===0))return;for(let dy=-2;dy<=2;dy++)for(let dx=-2;dx<=2;dx++)set(ax+dx,ay+dy,Math.max(Math.abs(dx),Math.abs(dy))!==1);}));
+    const fmt=mask=>{const d=mask;let r=d;for(let i=0;i<10;i++)r=(r<<1)^((r>>>9)*0x537);const b=((d<<10)|r)^0x5412;const g=i=>((b>>>i)&1)===1;
+      for(let i=0;i<=5;i++)set(8,i,g(i));set(8,7,g(6));set(8,8,g(7));set(7,8,g(8));for(let i=9;i<15;i++)set(14-i,8,g(i));
+      for(let i=0;i<8;i++)set(N-1-i,8,g(i));for(let i=8;i<15;i++)set(8,N-15+i,g(i));set(8,N-8,true);};
+    fmt(0);
+    if(ver>=7){let r=ver;for(let i=0;i<12;i++)r=(r<<1)^((r>>>11)*0x1F25);const b=(ver<<12)|r;for(let i=0;i<18;i++){const bit=((b>>>i)&1)===1,a=N-11+i%3,c=Math.floor(i/3);set(a,c,bit);set(c,a,bit);}}
+    let bi=0;for(let right=N-1;right>=1;right-=2){if(right===6)right=5;for(let vert=0;vert<N;vert++)for(let j=0;j<2;j++){const x=right-j,up=((right+1)&2)===0,y=up?N-1-vert:vert;if(!F[y][x]&&bi<cw.length*8){M[y][x]=((cw[bi>>>3]>>>(7-(bi&7)))&1)===1;bi++;}}}
+    const apply=m=>{for(let y=0;y<N;y++)for(let x=0;x<N;x++)if(!F[y][x]&&maskBit(m,x,y))M[y][x]=!M[y][x];};
+    const pen=()=>{let p=0;for(let t=0;t<2;t++)for(let a=0;a<N;a++){let run=0,prev=null,s='';for(let b=0;b<N;b++){const v=t?M[b][a]:M[a][b];s+=v?'1':'0';if(v===prev){run++;if(run===5)p+=3;else if(run>5)p++;}else{run=1;prev=v;}}
+        const z='0000'+s+'0000';for(let i=z.indexOf('1011101');i!==-1;i=z.indexOf('1011101',i+1))if(z.slice(i-4,i)==='0000'||z.slice(i+7,i+11)==='0000')p+=40;}
+      for(let y=0;y<N-1;y++)for(let x=0;x<N-1;x++){const c=M[y][x];if(c===M[y][x+1]&&c===M[y+1][x]&&c===M[y+1][x+1])p+=3;}
+      let dark=0;M.forEach(r=>r.forEach(v=>{if(v)dark++;}));return p+10*Math.floor(Math.abs(dark*20-N*N*10)/(N*N));};
+    let best=0,bp=Infinity;for(let m=0;m<8;m++){apply(m);fmt(m);const p=pen();if(p<bp){bp=p;best=m;}apply(m);}
+    apply(best);fmt(best);return M;
+  }
+  function svg(text){const M=make(text);if(!M)return'<p>주소가 너무 길어 QR을 만들 수 없어요</p>';const N=M.length,q=4;let d='';
+    M.forEach((r,y)=>r.forEach((v,x)=>{if(v)d+=`M${x+q} ${y+q}h1v1h-1z`;}));
+    return`<svg viewBox="0 0 ${N+2*q} ${N+2*q}" shape-rendering="crispEdges" role="img" aria-label="참가용 QR코드"><rect width="100%" height="100%" fill="#fff"/><path d="${d}" fill="#111"/></svg>`;}
+  return{make,svg};
+})();
+
+/* ===== 실시간 연결: 공개 MQTT 서버(WebSocket) ===== */
+const TE=new TextEncoder(),TD=new TextDecoder();
+function mqStr(s){const b=TE.encode(s),o=new Uint8Array(2+b.length);o[0]=b.length>>8;o[1]=b.length&255;o.set(b,2);return o;}
+function mqPkt(h,...parts){const len=parts.reduce((a,p)=>a+p.length,0),lb=[];let x=len;do{let d=x%128;x=Math.floor(x/128);if(x>0)d|=128;lb.push(d);}while(x>0);
+  const o=new Uint8Array(1+lb.length+len);o[0]=h;o.set(lb,1);let off=1+lb.length;for(const p of parts){o.set(p,off);off+=p.length;}return o;}
+class MiniMQTT{
+  constructor(url,onMessage,onStatus){Object.assign(this,{url,onMessage,onStatus,subs:new Set(),connected:false,closed:false,retry:1000,pid:1,buf:new Uint8Array(0),cid:'qa'+uid(16)});this.open();}
+  open(){if(this.closed)return;let ws;try{ws=new WebSocket(this.url,['mqtt']);}catch(e){return this.later();}
+    ws.binaryType='arraybuffer';this.ws=ws;this.buf=new Uint8Array(0);
+    const guard=setTimeout(()=>{if(!this.connected&&this.ws===ws)try{ws.close();}catch(e){}},8000);
+    ws.onopen=()=>this.raw(mqPkt(0x10,new Uint8Array([0,4,77,81,84,84,4,2,0,60]),mqStr(this.cid)));
+    ws.onmessage=ev=>{if(this.ws===ws&&typeof ev.data!=='string')this.feed(new Uint8Array(ev.data));};
+    ws.onclose=()=>{clearTimeout(guard);if(this.ws!==ws)return;const was=this.connected;this.connected=false;clearInterval(this.pinger);if(was)this.onStatus();this.later();};
+    ws.onerror=()=>{};}
+  later(){if(this.closed)return;clearTimeout(this.rt);this.rt=setTimeout(()=>this.open(),this.retry);this.retry=Math.min(this.retry*2,15000);}
+  raw(b){const ws=this.ws;if(ws&&ws.readyState===1){try{ws.send(b);}catch(e){}}}
+  feed(d){let b=d;if(this.buf.length){b=new Uint8Array(this.buf.length+d.length);b.set(this.buf);b.set(d,this.buf.length);}
+    let off=0;
+    while(b.length-off>=2){let mul=1,len=0,i=off+1,c,n=0;
+      do{if(i>=b.length){this.buf=b.slice(off);return;}c=b[i++];len+=(c&127)*mul;mul*=128;n++;}while((c&128)&&n<4);
+      if(b.length<i+len)break;this.handle(b[off]>>4,b[off]&15,b.subarray(i,i+len));off=i+len;}
+    this.buf=b.slice(off);}
+  handle(type,flags,body){
+    if(type===2){if(body[1]===0){this.connected=true;this.retry=1000;for(const t of this.subs)this.sub(t);clearInterval(this.pinger);this.pinger=setInterval(()=>this.raw(new Uint8Array([0xC0,0])),25000);this.onStatus();}else{try{this.ws.close();}catch(e){}}}
+    else if(type===3){const tl=(body[0]<<8)|body[1],topic=TD.decode(body.subarray(2,2+tl));let off=2+tl;const qos=(flags>>1)&3;
+      if(qos){const id=(body[off]<<8)|body[off+1];off+=2;if(qos===1)this.raw(new Uint8Array([0x40,2,id>>8,id&255]));}
+      try{this.onMessage(topic,TD.decode(body.subarray(off)));}catch(e){console.error(e);}}}
+  sub(t){const id=this.pid=(this.pid%65535)+1;this.raw(mqPkt(0x82,new Uint8Array([id>>8,id&255]),mqStr(t),new Uint8Array([0])));}
+  subscribe(t){this.subs.add(t);if(this.connected)this.sub(t);}
+  publish(t,s){if(!this.connected)return false;this.raw(mqPkt(0x30,mqStr(t),TE.encode(s)));return true;}
+  close(){this.closed=true;clearInterval(this.pinger);clearTimeout(this.rt);const ws=this.ws;this.ws=null;this.connected=false;try{if(ws&&ws.readyState===1)ws.send(new Uint8Array([0xE0,0]));if(ws)ws.close();}catch(e){}}
+}
+class LocalBus{ /* 같은 기기 안에서만 동작하는 테스트용 (?net=local) */
+  constructor(onMessage,onStatus){this.subs=new Set();this.connected=true;try{this.bc=new BroadcastChannel('qarena-local');this.bc.onmessage=e=>{const{topic,str}=e.data||{};if(this.subs.has(topic))onMessage(topic,str);};}catch(e){this.connected=false;}setTimeout(onStatus,0);}
+  subscribe(t){this.subs.add(t);} publish(t,s){if(this.bc)this.bc.postMessage({topic:t,str:s});return true;} close(){try{this.bc.close();}catch(e){}}
+}
+class Net{
+  constructor(pin,listen,onMsg,onStatus,multi){
+    Object.assign(this,{pin,listen,onMsg,onStatus:onStatus||(()=>{}),seen:new Map(),clients:[],idx:0,lastIn:Date.now(),switchedAt:Date.now()});
+    this.urls=CUSTOM.length?CUSTOM:BROKERS;
+    if(LOCAL)this.mk(null);else if(multi)this.urls.forEach(u=>this.mk(u));else this.mk(this.urls[0]);}
+  mk(url){const onM=(t,s)=>this.recv(t.slice(t.lastIndexOf('/')+1),s),onS=()=>this.onStatus(this.count());
+    const c=url?new MiniMQTT(url,onM,onS):new LocalBus(onM,onS);this.listen.forEach(s=>c.subscribe(this.topic(s)));this.clients.push(c);}
+  topic(s){return`${TOPIC}/${this.pin}/${s}`;}
+  count(){return this.clients.filter(c=>c.connected).length;}
+  recv(sub,str){let m;try{m=JSON.parse(str);}catch(e){return;}if(!m||typeof m!=='object')return;
+    if(m.mid){if(this.seen.has(m.mid))return;this.seen.set(m.mid,Date.now());if(this.seen.size>4000){const cut=Date.now()-120000;for(const[k,v]of this.seen)if(v<cut)this.seen.delete(k);}}
+    this.lastIn=Date.now();this.onMsg(sub,m);}
+  send(sub,obj){obj.mid=uid(10);const s=JSON.stringify(obj);let ok=false;for(const c of this.clients)if(c.connected){c.publish(this.topic(sub),s);ok=true;}return ok;}
+  watch(){/* 참가자 쪽: 서버가 안 되면 다음 공개 서버로 갈아탐 */
+    if(LOCAL||this.urls.length<2)return;const now=Date.now(),since=now-this.switchedAt;
+    if((!this.count()&&since>6000)||(now-this.lastIn>10000&&since>10000)){const old=this.clients.pop();if(old)old.close();this.idx=(this.idx+1)%this.urls.length;this.switchedAt=now;this.mk(this.urls[this.idx]);this.onStatus(this.count());}}
+  close(){this.clients.forEach(c=>c.close());this.clients=[];}
+}
+
+/* ===== 리모컨 통신 암호화 (관리자 코드로 만든 열쇠, AES-GCM) ===== */
+const CRY=!!(window.crypto&&crypto.subtle);
+const b64=u=>{let s='';for(let i=0;i<u.length;i+=0x8000)s+=String.fromCharCode.apply(null,u.subarray(i,i+0x8000));return btoa(s);};
+const unb64=s=>Uint8Array.from(atob(s),c=>c.charCodeAt(0));
+async function mkKey(code,pin){const base=await crypto.subtle.importKey('raw',TE.encode(code),'PBKDF2',false,['deriveKey']);
+  return crypto.subtle.deriveKey({name:'PBKDF2',salt:TE.encode('qarena-remote-'+pin),iterations:60000,hash:'SHA-256'},base,{name:'AES-GCM',length:256},false,['encrypt','decrypt']);}
+async function seal(key,obj){const iv=crypto.getRandomValues(new Uint8Array(12));const ct=new Uint8Array(await crypto.subtle.encrypt({name:'AES-GCM',iv},key,TE.encode(JSON.stringify(obj))));return{iv:b64(iv),ct:b64(ct)};}
+async function unseal(key,m){try{if(typeof m.iv!=='string'||typeof m.ct!=='string')return null;const pt=await crypto.subtle.decrypt({name:'AES-GCM',iv:unb64(m.iv)},key,unb64(m.ct));return JSON.parse(TD.decode(pt));}catch(e){return null;}}
+
+/* ===== 이미지 ===== */
+function readImage(file){return new Promise((res,rej)=>{if(!file||!/^image\//.test(file.type||'image/')){rej(new Error('이미지 파일만 넣을 수 있어요'));return;}
+  const url=URL.createObjectURL(file),im=new Image();
+  im.onload=()=>{const draw=(max,q)=>{const s=Math.min(1,max/Math.max(im.naturalWidth,im.naturalHeight)),w=Math.max(1,Math.round(im.naturalWidth*s)),h=Math.max(1,Math.round(im.naturalHeight*s));
+      const cv=document.createElement('canvas');cv.width=w;cv.height=h;const cx=cv.getContext('2d');cx.fillStyle='#fff';cx.fillRect(0,0,w,h);cx.drawImage(im,0,0,w,h);return cv.toDataURL('image/jpeg',q);};
+    let q=0.85,full=draw(1280,q);while(full.length>420000&&q>0.45){q-=0.1;full=draw(1280,q);}if(full.length>420000)full=draw(960,0.6);
+    URL.revokeObjectURL(url);res({full,thumb:draw(160,0.7)});};
+  im.onerror=()=>{URL.revokeObjectURL(url);rej(new Error('이 이미지는 열 수 없어요. JPG나 PNG로 바꿔서 넣어 주세요.'));};im.src=url;});}
+/* 참가자·발표 화면 쪽 이미지 수신 */
+const IMG={cache:new Map(),parts:{},wait:{},onReady:()=>{}};
+function gotChunk(m){if(typeof m.id!=='string'||IMG.cache.has(m.id)||typeof m.d!=='string')return;const n=m.n|0,i=m.i|0;if(n<1||n>400||i<0||i>=n)return;
+  const c=IMG.parts[m.id]&&IMG.parts[m.id].n===n?IMG.parts[m.id]:(IMG.parts[m.id]={n,got:0,p:new Array(n)});
+  if(c.p[i]==null){c.p[i]=m.d;c.got++;}if(c.got===n){IMG.cache.set(m.id,c.p.join(''));delete IMG.parts[m.id];IMG.onReady();}}
+function needImgs(st,net,pid){if(!st||!net)return;const ids=[];if(st.q&&st.q.img)ids.push(st.q.img);if(st.rv&&st.rv.img)ids.push(st.rv.img);const now=Date.now();
+  for(const id of ids){if(IMG.cache.has(id))continue;const w=IMG.wait[id]||(IMG.wait[id]={t:now,asked:0});if(now-w.t>1500&&now-w.asked>3000){w.asked=now;net.send('p',{t:'need',pid,img:id});}}}
+const imgReady=(st,get)=>[st.q&&st.q.img,st.rv&&st.rv.img].map(id=>id?(get(id)?1:0):'-').join('');
+function imgBlock(id,get,cls='qimg'){if(!id)return'';const d=get(id);return d?`<img class="${cls}" src="${d}" alt="">`:`<div class="imgload"><span class="spin"></span>이미지 받는 중…</div>`;}
+
+/* ===== 무대 화면 (노트북 발표 모드·발표 화면 공용) ===== */
+const label=(q,k)=>(q.labels&&q.labels[k])||`${k+1}번`;
+const rankOf=(arr,k,v)=>1+arr.filter(x=>(x[k]||0)>(v||0)).length;
+function legendHTML(q,rv){return`<div class="legend n${q.n}">${Array.from({length:q.n},(_,k)=>`<div class="ans c${k} ${rv?(k===rv.correct?'right':'dim'):''}" style="background:${COLORS[k]}">${shape(k)}<span>${esc(label(q,k))}</span>${rv?`<em>${rv.dist[k]||0}명</em>`:''}</div>`).join('')}</div>`;}
+function stageKey(st,get){const pl=st.pl;return[st.phase,st.qi,st.qk,pl.length,st.phase==='lobby'?pl.map(p=>p.id+p.n).join(','):'',/board|end/.test(st.phase)?pl.map(p=>p.id+':'+p.r+':'+(p.s??'')).join(','):'',st.rv?JSON.stringify(st.rv)+pl.map(p=>p.c?1:0).join(''):'',imgReady(st,get)].join('|');}
+const timerText=ms=>ms>0?String(Math.ceil(ms/1000)):'끝';
+function stageHTML(st,get,join){
+  const pl=st.pl,q=st.q;
+  if(st.phase==='lobby'){
+    const file=location.protocol==='file:';
+    return`<div class="stg"><div class="lobby"><div class="joincard"><div class="qr">${QR.svg(join)}</div><div><div class="jl">${esc(st.title)}</div><div class="jk">휴대폰 카메라로 QR을 찍거나, 아래 주소에 들어가 PIN을 입력하세요.</div><div class="pin">${fmtPin(st.pin)}</div><div class="url">${esc(join.replace(/^https?:\/\//,'').split('?')[0])}</div>${file?'<div class="warn">지금은 파일을 직접 연 상태라 다른 기기가 QR로 들어올 수 없어요. 웹에 올린 주소로 열어 주세요.</div>':''}</div></div>
+    <div class="roster"><h3>참가자 <b>${pl.length}</b> / ${MAX}</h3><div class="chips">${pl.length?pl.map(p=>`<span class="chip">${esc(p.n)}</span>`).join(''):'<span class="none">아직 아무도 없어요. QR을 찍어 들어와 보세요!</span>'}</div></div></div></div>`;}
+  if(st.phase==='question'&&q)return`<div class="stg"><div class="qhead"><span class="qno">${st.qi+1} / ${st.qn}</span>${q.time?`<span class="timer" id="tm">${timerText(q.rem)}</span>`:''}<span class="qcnt"><b id="cnt">${st.cnt}</b> / ${pl.length}명 제출</span></div>
+    <div class="qcard">${imgBlock(q.img,get)}${q.text?`<div class="qtext">${esc(q.text)}</div>`:''}${!q.img&&!q.text?'<div class="qtext">문제를 확인하세요</div>':''}</div>
+    ${q.type==='choice'?legendHTML(q):'<div class="typein">휴대폰에 정답을 직접 입력하세요</div>'}</div>`;
+  if(st.phase==='reveal'&&q){const rv=st.rv,okN=pl.filter(p=>p.c).length,hasQ=q.img||q.text;
+    const at=rv.text||rv.accepts||(q.type==='choice'?label(q,rv.correct):'');
+    return`<div class="stg"><div class="qhead"><span class="qno">${st.qi+1} / ${st.qn}</span><span class="tag">정답 공개</span><span class="qcnt"><b>${okN}</b> / ${pl.length}명 정답</span></div>
+    <div class="reveal ${hasQ?'':'solo'}">${hasQ?`<div class="qcard small">${imgBlock(q.img,get)}${q.text?`<div class="qtext">${esc(q.text)}</div>`:''}</div>`:''}
+    <div class="ansbox"><span class="albl">정답</span>${rv.img?imgBlock(rv.img,get):''}${at?`<div class="atext">${esc(at)}</div>`:''}</div></div>
+    ${q.type==='choice'?legendHTML(q,rv):(rv.list&&rv.list.length?`<div class="tlist">${rv.list.map(x=>`<span class="tans ${x.a==null?'none':(x.c?'ok':'bad')}"><b>${esc(x.n)}</b>${x.a==null?'미제출':esc(x.a)}</span>`).join('')}</div>`:'')}</div>`;}
+  if(st.phase==='board')return`<div class="stg"><div class="qhead"><span class="qno">${st.qi+1} / ${st.qn}</span><h2 class="sttl">문제 ${st.qi+1} 점수</h2><span class="qcnt sm">총점은 마지막에 공개돼요</span></div>
+    <div class="board">${pl.map(p=>{const rk=rankOf(pl,'r',p.r);return`<div class="brow ${p.r>0&&rk<=3?'top':''}"><span class="rk">${rk}</span><span class="nm">${esc(p.n)}</span><span class="sc ${p.r>0?'':'zero'}">+${num(p.r)}</span></div>`;}).join('')||'<p>참가자가 없어요</p>'}</div></div>`;
+  const top=pl.slice(0,3);
+  return`<div class="stg"><h2 class="sttl big">최종 결과</h2><div class="podium">${[1,0,2].map(i=>top[i]?`<div class="pod p${i+1}"><div class="who2">${esc(top[i].n)}</div><div class="pp">${num(top[i].s)}점</div><div class="blk">${rankOf(pl,'s',top[i].s)}</div></div>`:'<div class="pod"></div>').join('')}</div>
+    ${pl.length>3?`<div class="board">${pl.slice(3).map(p=>`<div class="brow"><span class="rk">${rankOf(pl,'s',p.s)}</span><span class="nm">${esc(p.n)}</span><span class="sc">${num(p.s)}</span></div>`).join('')}</div>`:''}</div>`;
+}
+
+/* ===== 첫 화면 ===== */
+function landing(openGate){
+  app.innerHTML=`<main class="land"><div class="land-in"><div class="tiles">${[0,1,2,3].map(k=>`<span class="tile" style="background:${COLORS[k]};color:${fg(k)}">${shape(k)}</span>`).join('')}</div>
+  <h1 class="logo">퀴즈 아레나<small>휴대폰으로 참여하는 실시간 퀴즈</small></h1>
+  <form class="joinbox" data-form="pin"><label class="l" for="pinin">게임 PIN</label><input id="pinin" class="bigin" inputmode="numeric" maxlength="7" placeholder="000000" autocomplete="off"><button class="btn pri big" type="submit">입장하기</button></form>
+  <button class="admin-link" data-a="gate">관리자로 들어가기</button></div></main>`;
+  app.onclick=e=>{if(e.target.closest('[data-a=gate]'))adminGate();};
+  app.onsubmit=e=>{e.preventDefault();const v=$('#pinin').value.replace(/\D/g,'');if(v.length!==6){toast('PIN 6자리를 입력하세요');return;}location.href=joinUrl(v);};
+  if(openGate)adminGate();
+}
+function adminGate(){gate(adminOpen,()=>{if(location.hash==='#admin')history.replaceState(null,'',location.pathname+location.search);});}
+function gate(onOk,onCancel){
+  modal(`<div class="mbox" role="dialog" aria-modal="true"><h3>관리자 코드</h3><p>6자리 코드를 입력하세요.</p><input id="gcode" class="bigin" type="password" inputmode="numeric" maxlength="6" autocomplete="off" aria-label="관리자 코드"><p class="err" id="gerr"></p><div class="mrow"><button class="btn line" data-m="no">취소</button><button class="btn pri" data-m="ok">확인</button></div></div>`,
+  a=>{if(a!=='ok'){if(onCancel)onCancel();return;}const v=$('#gcode').value.trim();
+    if(hash(v)===ADMIN_HASH){onOk(v);return;}$('#gerr').textContent='코드가 맞지 않아요.';$('#gcode').select();return false;});
+  const g=$('#gcode');g.focus();g.onkeydown=e=>{if(e.key==='Enter')$('[data-m=ok]').click();};
+}
+
+/* ===== 관리자 (노트북) ===== */
+const A={quiz:null,sel:0,tab:'edit',G:null,snap:null,imgs:{},sent:{},net:null,hide:false,stageKey:'',tk:0,code:'',key:null,hs:uid(6),seq:0,remotes:{},nonces:new Set(),present:false};
+const newQ=()=>({id:uid(8),img:null,th:null,text:'',type:'choice',n:4,labels:['','','',''],correct:0,accepts:'',time:20,aImg:null,ath:null,aText:''});
+function normQ(q){const d=newQ();q=Object.assign(d,q||{});q.n=[2,3,4].includes(+q.n)?+q.n:4;q.labels=[0,1,2,3].map(i=>String((q.labels||[])[i]||''));q.correct=Math.min(Math.max(0,q.correct|0),q.n-1);q.time=TIMES.includes(+q.time)?+q.time:20;q.type=q.type==='text'?'text':'choice';return q;}
+const remoteUrl=pin=>joinUrl(pin)+'&view=remote';
+async function adminOpen(code){
+  A.code=code;ss.set('qa-admin',code);if(location.hash!=='#admin')history.replaceState(null,'',location.pathname+location.search+'#admin');
+  $('#modal').innerHTML='';
+  A.quiz=await idb.get('quiz')||{title:'우리들의 퀴즈',qs:[newQ()]};if(!Array.isArray(A.quiz.qs)||!A.quiz.qs.length)A.quiz.qs=[newQ()];A.quiz.qs=A.quiz.qs.map(normQ);
+  A.G=store.get('qa-game',null);
+  if(A.G){A.snap=await idb.get('gamequiz')||null;if(A.G.phase!=='lobby'&&!A.snap){A.G=null;store.del('qa-game');}}
+  if(A.snap)buildImgs();
+  A.tab=A.G?'play':'edit';if(A.G)connectAdmin();
+  app.onclick=adminClick;app.oninput=adminInput;app.onchange=adminChange;
+  app.onsubmit=e=>{e.preventDefault();if(e.target.dataset.form==='remote'){const v=$('#rpin').value.replace(/\D/g,'');if(v.length!==6){toast('PIN 6자리를 입력하세요');return;}location.href=remoteUrl(v);}};
+  app.ondragover=e=>{const s=e.target.closest&&e.target.closest('.slot');e.preventDefault();if(s)s.classList.add('drag');};
+  app.ondragleave=e=>{const s=e.target.closest&&e.target.closest('.slot');if(s)s.classList.remove('drag');};
+  app.ondrop=e=>{e.preventDefault();const s=e.target.closest&&e.target.closest('.slot');if(!s)return;s.classList.remove('drag');const f=[...(e.dataTransfer.files||[])].find(f=>/^image\//.test(f.type));if(f)setImg(s.dataset.slot,f);};
+  document.addEventListener('keydown',hostKey);
+  document.addEventListener('fullscreenchange',()=>{if(!document.fullscreenElement&&A.present)setPresent(false);});
+  renderAdmin();setInterval(adminTick,250);setInterval(()=>{if(A.G&&A.net)sendStateNow();},3000);
+}
+function renderAdmin(){
+  document.body.classList.toggle('present',A.present&&A.tab==='play'&&!!A.G);
+  app.innerHTML=`<header class="abar"><span class="brand">퀴즈 아레나</span><nav class="tabs"><button class="tab ${A.tab==='edit'?'on':''}" data-a="tab" data-v="edit">문제 만들기</button><button class="tab ${A.tab==='play'?'on':''}" data-a="tab" data-v="play">게임 진행</button></nav><span class="spacer"></span><span class="netst" id="netst"></span><button class="btn sm ghost" data-a="logout">나가기</button></header>${A.present?'<button class="btn sm ghost pexit" data-a="unpresent">발표 모드 끝내기 (Esc)</button>':''}<div id="aview"></div>`;
+  renderNet();if(A.tab==='edit')renderEdit();else renderPlay(true);
+}
+function renderNet(){const el=$('#netst');if(!el)return;if(!A.net){el.innerHTML='';return;}const c=A.net.count(),t=A.net.clients.length;
+  el.innerHTML=LOCAL?'<i class="dot on"></i>로컬 테스트':`<i class="dot ${c?'on':''}"></i>${c?`공개 서버 ${c}/${t}곳 연결됨`:'서버 연결 중…'}`;}
+function setPresent(on){
+  A.present=on;
+  if(on){try{const p=document.documentElement.requestFullscreen&&document.documentElement.requestFullscreen();if(p&&p.catch)p.catch(()=>{});}catch(e){}}
+  else if(document.fullscreenElement){try{const p=document.exitFullscreen();if(p&&p.catch)p.catch(()=>{});}catch(e){}}
+  renderAdmin();}
+function hostKey(e){
+  if(e.key==='Escape'&&A.present){setPresent(false);return;}
+  if(A.tab!=='play'||!A.G||$('#modal').innerHTML)return;
+  if(e.target.closest&&e.target.closest('input,textarea,select,button,a'))return;
+  if(['ArrowRight','PageDown',' '].includes(e.key)){e.preventDefault();primary();}}
+function primary(){const G=A.G;if(!G)return;if(G.phase==='lobby')startGame();else if(G.phase==='question')doReveal();else if(G.phase==='reveal')goPhase('board');else if(G.phase==='board')nextQ();}
+/* --- 문제 만들기 --- */
+function renderEdit(){
+  $('#aview').innerHTML=`<div class="edit"><aside class="panel qlist"><div><label class="l" for="qtitle">퀴즈 제목</label><input id="qtitle" class="inp" data-qt="1" maxlength="40" value="${esc(A.quiz.title)}"></div>
+  <div id="qitems"></div><button class="btn line" data-a="addq">+ 문제 추가</button>
+  <div class="io"><button class="btn sm line" data-a="export">내보내기</button><label class="btn sm line">불러오기<input type="file" accept=".json,application/json" data-imp="1" hidden></label></div>
+  <p class="hint" id="saved">문제는 이 기기의 브라우저에 자동 저장돼요. 다른 기기로 옮길 땐 내보내기 → 불러오기를 쓰세요.</p></aside><section class="panel" id="qedit"></section></div>`;
+  renderItems();renderQEdit();
+}
+function renderItems(){const el=$('#qitems');if(!el)return;el.innerHTML=A.quiz.qs.map((q,i)=>`<button class="item ${i===A.sel?'on':''}" data-a="sel" data-i="${i}"><span class="num">${i+1}</span><span class="thumb" ${q.th?`style="background-image:url('${q.th}')"`:''}>${q.th?'':'이미지 없음'}</span><span class="tx">${esc(q.text||(q.type==='choice'?`객관식 ${q.n}지선다`:'주관식'))}<br><small class="opt">${q.time?q.time+'초':'시간 제한 없음'}</small></span></button>`).join('');}
+function slotHTML(key,img){return`<div class="slotwrap"><label class="slot" data-slot="${key}">${img?`<img src="${img}" alt="">`:'<span><b>+ 이미지 넣기</b><br>눌러서 고르거나 여기로 끌어다 놓으세요</span>'}<input type="file" accept="image/*" data-file="${key}" hidden></label>${img?`<button class="btn sm line" data-a="rmimg" data-v="${key}">이미지 빼기</button>`:''}</div>`;}
+function typeBoxHTML(q){
+  if(q.type==='choice')return`<div class="field"><div class="lrow"><span class="l">보기와 정답</span><div class="seg">${[2,3,4].map(n=>`<button data-a="nch" data-v="${n}" class="${q.n===n?'on':''}">${n}개</button>`).join('')}</div><button class="btn sm line" data-a="ox">O / X</button></div>
+  ${Array.from({length:q.n},(_,k)=>`<div class="chrow"><span class="chb" style="background:${COLORS[k]};color:${fg(k)}">${shape(k)}</span><input class="inp" data-lab="${k}" maxlength="40" placeholder="${k+1}번 보기 문구 (선택)" value="${esc(q.labels[k])}" aria-label="${k+1}번 보기"><button class="okb ${q.correct===k?'on':''}" data-a="cor" data-v="${k}" aria-pressed="${q.correct===k}">${q.correct===k?'정답':'선택'}</button></div>`).join('')}
+  <p class="hint">보기를 이미지 안에 그려 넣었다면 문구는 비워 두세요. 참가자 휴대폰에는 색깔 도형 버튼으로 나와요.</p></div>`;
+  return`<div class="field"><label class="l" for="f-acc">자동 채점용 정답 <span class="opt">(선택)</span></label><input id="f-acc" class="inp" data-f="accepts" maxlength="200" placeholder="예: 경복궁, 경복 궁" value="${esc(q.accepts)}"><p class="hint">쉼표로 여러 개 넣을 수 있고, 띄어쓰기·대소문자는 무시해요. 비워 두면 진행 화면(또는 휴대폰 리모컨)에서 직접 정답/오답을 눌러 채점해요.</p></div>`;
+}
+function renderQEdit(){const q=A.quiz.qs[A.sel],i=A.sel,n=A.quiz.qs.length;
+  $('#qedit').innerHTML=`<div class="qe-head"><h2>문제 ${i+1}</h2><div class="qe-tools"><button class="btn sm line" data-a="mv" data-v="-1" ${i===0?'disabled':''}>위로</button><button class="btn sm line" data-a="mv" data-v="1" ${i===n-1?'disabled':''}>아래로</button><button class="btn sm line" data-a="dup">복제</button><button class="btn sm line danger" data-a="delq" ${n<2?'disabled':''}>삭제</button></div></div>
+  <div class="grid2"><div>
+    <div class="field"><span class="l">문제 이미지</span>${slotHTML('img',q.img)}</div>
+    <div class="field"><label class="l" for="f-text">문제 문구 <span class="opt">(선택)</span></label><textarea id="f-text" class="inp" data-f="text" maxlength="200" placeholder="이미지와 함께 보여줄 문구">${esc(q.text)}</textarea></div>
+    <div class="field"><label class="l" for="f-time">제한 시간</label><select id="f-time" class="inp" data-f="time">${TIMES.map(t=>`<option value="${t}" ${q.time===t?'selected':''}>${t?t+'초':'제한 없음'}</option>`).join('')}</select><p class="hint">빨리 맞힐수록 점수가 높아요 (최대 1,000점, 시간 제한이 없으면 1,000점). 시간이 끝나면 답 제출만 닫히고, 정답은 관리자가 눌러야 공개돼요.</p></div>
+  </div><div>
+    <div class="field"><span class="l">답 방식</span><div class="seg"><button data-a="type" data-v="choice" class="${q.type==='choice'?'on':''}">객관식 (버튼)</button><button data-a="type" data-v="text" class="${q.type==='text'?'on':''}">주관식 (직접 입력)</button></div></div>
+    ${typeBoxHTML(q)}
+    <div class="field"><span class="l">정답 공개 — 이미지 <span class="opt">(선택)</span></span>${slotHTML('aImg',q.aImg)}</div>
+    <div class="field"><label class="l" for="f-atext">정답 공개 — 텍스트 <span class="opt">(선택)</span></label><textarea id="f-atext" class="inp" data-f="aText" maxlength="200" placeholder="예: 정답은 경복궁!">${esc(q.aText)}</textarea></div>
+  </div></div>`;}
+function saveQuiz(){clearTimeout(A.saveT);const el=$('#saved');if(el)el.textContent='저장하는 중…';
+  A.saveT=setTimeout(async()=>{const ok=await idb.set('quiz',A.quiz),el=$('#saved');if(el)el.textContent=ok?'이 기기의 브라우저에 자동 저장됐어요.':'저장하지 못했어요. 내보내기로 백업해 두세요.';if(!ok)toast('저장하지 못했어요. 브라우저 저장 공간을 확인하세요.');},400);}
+async function setImg(key,file){const q=A.quiz.qs[A.sel];try{const{full,thumb}=await readImage(file);q[key]=full;q[key==='img'?'th':'ath']=thumb;saveQuiz();if(A.quiz.qs[A.sel]===q)renderQEdit();renderItems();}catch(err){toast(err.message);}}
+function adminInput(e){const t=e.target,q=A.quiz.qs[A.sel];if(!t.dataset||A.tab!=='edit')return;
+  if(t.dataset.qt){A.quiz.title=t.value;saveQuiz();return;}
+  if(t.dataset.f){const f=t.dataset.f;q[f]=f==='time'?Number(t.value):t.value;saveQuiz();if(f==='text'||f==='time')renderItems();return;}
+  if(t.dataset.lab!=null){q.labels[+t.dataset.lab]=t.value;saveQuiz();}}
+async function adminChange(e){const t=e.target;
+  if(t.dataset.file){const f=t.files&&t.files[0];t.value='';if(f)await setImg(t.dataset.file,f);return;}
+  if(t.dataset.imp){const f=t.files&&t.files[0];t.value='';if(!f)return;try{const o=JSON.parse(await f.text()),qz=o.quiz||o;if(!Array.isArray(qz.qs)||!qz.qs.length)throw 0;
+      confirmBox('문제 불러오기',`"${qz.title||'퀴즈'}" (문제 ${qz.qs.length}개)로 지금 문제를 모두 바꿀까요?`,'바꾸기',()=>{A.quiz={title:String(qz.title||'우리들의 퀴즈').slice(0,40),qs:qz.qs.map(normQ)};A.sel=0;saveQuiz();renderEdit();toast('불러왔어요');});}
+    catch(err){toast('퀴즈 파일을 읽지 못했어요');}return;}
+  adminInput(e);}
+function exportQuiz(){const b=new Blob([JSON.stringify({app:'quiz-arena',v:1,quiz:A.quiz})],{type:'application/json'}),a=document.createElement('a');
+  a.href=URL.createObjectURL(b);a.download=(A.quiz.title||'퀴즈').replace(/[\\/:*?"<>|]/g,'')+'.json';document.body.appendChild(a);a.click();setTimeout(()=>{URL.revokeObjectURL(a.href);a.remove();},1500);}
+/* --- 게임 진행 --- */
+const saveG=()=>store.set('qa-game',A.G);
+const curQ=()=>A.snap&&A.G&&A.snap.qs[A.G.qi];
+const qkey=()=>A.G.run+'-'+A.G.qi;
+const posKey=()=>`${A.G.run}|${A.G.qi}|${A.G.phase}`;
+const qCount=()=>A.G&&A.G.phase!=='lobby'&&A.snap?A.snap.qs.length:A.quiz.qs.length;
+function connectAdmin(){if(A.net)A.net.close();A.key=null;A.net=new Net(A.G.pin,['p','r'],onAdminMsg,()=>{renderNet();sendStateSoon();},true);renderNet();
+  if(CRY&&A.code){const pin=A.G.pin;mkKey(A.code,pin).then(k=>{if(A.G&&A.G.pin===pin)A.key=k;}).catch(e=>console.warn(e));}}
+function buildImgs(){A.imgs={};A.snap.qs.forEach(q=>{if(q.imgId)A.imgs[q.imgId]=q.img;if(q.aImgId)A.imgs[q.aImgId]=q.aImg;});}
+function createRoom(){const r=crypto.getRandomValues(new Uint32Array(1))[0];A.G={pin:String(100000+r%900000),run:uid(6),phase:'lobby',qi:0,qStart:0,qEnd:0,players:{},answers:{},kicked:{}};
+  A.remotes={};saveG();connectAdmin();renderPlay(true);}
+function norm(s){return String(s||'').normalize('NFC').toLowerCase().replace(/[\s.,!?~'"`·\-_()[\]{}:;]/g,'');}
+function grade(q,a){if(q.type==='choice')return a===q.correct;const acc=String(q.accepts||'').split(/[,\n]/).map(norm).filter(Boolean);return acc.includes(norm(a));}
+const points=(q,t)=>q.time?Math.round(1000*(1-0.5*Math.min(1,t/(q.time*1000)))):1000;
+function scoresMap(){const s={};for(const id in A.G.players)s[id]=0;for(const qi in A.G.answers){const r=A.G.answers[qi];for(const id in r)if(r[id].c&&id in s)s[id]+=r[id].p;}return s;}
+const curRec=()=>(/question|reveal|board/.test(A.G.phase)&&A.G.answers[A.G.qi])||{};
+const corrText=q=>q.type==='choice'?`정답: ${q.correct+1}번${q.labels[q.correct]?' · '+q.labels[q.correct]:''}`:(q.accepts?`자동 채점: ${q.accepts}`:'자동 채점 정답 없음 — 직접 눌러 채점하세요');
+/* 참가자·발표 화면에 보내는 공개 상태 (총점은 마지막 결과 때만 보냄) */
+function buildState(){
+  const G=A.G,q=curQ(),ph=G.phase,inQ=(ph==='question'||ph==='reveal')&&q,rec=curRec(),sc=ph==='end'?scoresMap():null;
+  const pl=Object.keys(G.players).map(id=>{const p=G.players[id],a=rec[id],o={id,n:p.n,j:p.j,a:!!a,c:ph==='reveal'&&a?a.c:null,r:(ph==='reveal'||ph==='board')&&a&&a.c?a.p:0};if(sc)o.s=sc[id];return o;})
+    .sort(ph==='end'?(a,b)=>b.s-a.s||a.j-b.j:ph==='board'?(a,b)=>b.r-a.r||a.j-b.j:(a,b)=>a.j-b.j);
+  const st={t:'state',pin:G.pin,title:(ph!=='lobby'&&A.snap?A.snap:A.quiz).title||'퀴즈',phase:ph,qi:G.qi,qn:qCount(),qk:qkey(),pl,cnt:Object.keys(rec).filter(id=>G.players[id]).length};
+  if(inQ)st.q={type:q.type,n:q.n,labels:q.labels.slice(0,q.n),img:q.imgId,text:q.text,time:q.time,rem:G.qEnd?Math.max(0,G.qEnd-Date.now()):0};
+  if(ph==='reveal'&&q){const dist=new Array(q.n).fill(0);if(q.type==='choice')for(const id in rec)if(G.players[id]&&rec[id].a>=0&&rec[id].a<q.n)dist[rec[id].a]++;
+    st.rv={img:q.aImgId,text:q.aText,correct:q.type==='choice'?q.correct:-1,accepts:q.type==='text'?String(q.accepts||'').split(/[,\n]/)[0].trim():'',dist};
+    if(q.type==='text')st.rv.list=Object.keys(G.players).sort((x,y)=>G.players[x].j-G.players[y].j).map(id=>({n:G.players[id].n,a:rec[id]?rec[id].a:null,c:rec[id]?rec[id].c:null}));}
+  return st;}
+/* 관리자만 보는 정보 (리모컨에는 암호화해서 보냄) */
+function admExtra(){
+  const G=A.G,q=curQ(),ph=G.phase,inQ=(ph==='question'||ph==='reveal')&&q,rec=curRec(),sc=scoresMap(),now=Date.now();
+  const ids=Object.keys(G.players).sort((a,b)=>G.players[a].j-G.players[b].j);
+  return{pos:posKey(),nq:A.quiz.qs.length,last:G.qi>=qCount()-1,corr:inQ?corrText(q):'',qtext:inQ?q.text||'':'',up:!!(ph==='question'&&G.qEnd&&now>=G.qEnd),
+    ans:inQ?ids.map(id=>{const r=rec[id];return{id,n:G.players[id].n,on:now-G.players[id].seen<25000,a:r?r.a:null,t:r?r.t:null,c:r?r.c:null,p:r?r.p:0};}):[],
+    sc:ids.map(id=>({id,n:G.players[id].n,s:sc[id],r:rec[id]&&rec[id].c?rec[id].p:0})).sort((a,b)=>b.s-a.s)};}
+const remoteCount=()=>Object.values(A.remotes).filter(t=>Date.now()-t<20000).length;
+function sendStateNow(){clearTimeout(A.stT);if(A.net&&A.G){A.net.send('s',buildState());sendAdm();}}
+function sendStateSoon(){clearTimeout(A.stT);A.stT=setTimeout(sendStateNow,120);}
+async function sendAdm(){if(!A.key||!A.net||!A.G||!remoteCount())return;
+  try{const s=await seal(A.key,{hs:A.hs,seq:++A.seq,st:buildState(),x:admExtra()});if(A.net)A.net.send('a',Object.assign({t:'adm'},s));}catch(e){console.warn(e);}}
+function sendImage(id){const d=A.imgs[id];if(!d||!A.net)return;const now=Date.now();if(A.sent[id]&&now-A.sent[id]<1500)return;A.sent[id]=now;
+  const CH=30000,n=Math.ceil(d.length/CH);for(let i=0;i<n;i++)A.net.send('i',{t:'img',id,n,i,d:d.slice(i*CH,(i+1)*CH)});}
+function onAdminMsg(sub,m){const G=A.G;if(!G)return;
+  if(sub==='r'){if(m.t==='cmd')onRemoteCmd(m);return;}
+  if(sub!=='p'||typeof m.pid!=='string')return;const pid=m.pid.slice(0,40);
+  if(m.t==='peek'){sendStateSoon();return;}
+  if(m.t==='need'){if(typeof m.img==='string')sendImage(m.img);return;}
+  if(G.kicked[pid]){A.net.send('s',{t:'kick',pid});return;}
+  const p=G.players[pid];
+  if(m.t==='hello'){
+    if(!p){if(Object.keys(G.players).length>=MAX){A.net.send('s',{t:'full',pid});return;}
+      let name=String(m.name||'').replace(/\s+/g,' ').trim().slice(0,12)||'참가자';const names=new Set(Object.values(G.players).map(x=>x.n));
+      if(names.has(name)){let k=2;while(names.has(name+k))k++;name=name+k;}
+      G.players[pid]={n:name,j:Date.now(),seen:Date.now()};saveG();renderPlay();}
+    else p.seen=Date.now();
+    sendStateSoon();return;}
+  if(m.t==='ans'&&p){p.seen=Date.now();
+    if(G.phase!=='question'||m.qk!==qkey()){sendStateSoon();return;}
+    const q=curQ(),rec=G.answers[G.qi]||(G.answers[G.qi]={});if(rec[pid]){sendStateSoon();return;}
+    let a=m.a;if(q.type==='choice'){a=Number(a);if(!(a>=0&&a<q.n))return;}else{a=String(a||'').trim().slice(0,80);if(!a)return;}
+    const t=Date.now()-G.qStart;if(q.time&&t>q.time*1000+1500)return;
+    rec[pid]={a,t,c:grade(q,a),p:points(q,t)};saveG();sendStateSoon();renderPlay();}}
+async function onRemoteCmd(m){
+  if(!A.key)return;const c=await unseal(A.key,m);if(!c||typeof c.cmd!=='string'||!A.G)return;
+  if(Math.abs(Date.now()-(+c.ts||0))>600000||A.nonces.has(c.nc))return;A.nonces.add(c.nc);if(A.nonces.size>3000)A.nonces.clear();
+  const rid=String(c.rid||'').slice(0,20),isNew=!A.remotes[rid]||Date.now()-A.remotes[rid]>20000;A.remotes[rid]=Date.now();
+  if(isNew){toast('휴대폰 리모컨이 연결됐어요');renderPlay();}
+  const G=A.G,here=c.at===posKey(),sameQ=typeof c.at==='string'&&c.at.startsWith(G.run+'|'+G.qi+'|');
+  switch(c.cmd){
+    case'start':if(here&&G.phase==='lobby')await startGame();break;
+    case'reveal':if(here)doReveal();break;
+    case'board':if(here&&G.phase==='reveal')goPhase('board');break;
+    case'next':if(here&&/reveal|board/.test(G.phase))nextQ();break;
+    case'again':if(here&&G.phase==='end')again();break;
+    case'judge':if(sameQ)setJudge(String(c.pid),!!c.c);break;
+    case'kick':kickNow(String(c.pid));break;
+  }
+  sendAdm();}
+async function startGame(){
+  if(!A.quiz.qs.length||!A.G||A.G.phase!=='lobby')return;
+  const snap=JSON.parse(JSON.stringify({title:A.quiz.title,qs:A.quiz.qs.map(q=>Object.assign({},q,{th:undefined,ath:undefined}))}));
+  snap.qs.forEach((q,i)=>{q.imgId=q.img?`q${i}-${hash(q.img)}`:null;q.aImgId=q.aImg?`a${i}-${hash(q.aImg)}`:null;});
+  A.snap=snap;buildImgs();if(!await idb.set('gamequiz',snap))toast('게임 문제를 저장하지 못했어요. 새로고침하면 이어서 할 수 없어요.');
+  A.G.qi=0;A.G.answers={};startQ();}
+function startQ(){const q=curQ(),G=A.G;G.phase='question';G.qStart=Date.now();G.qEnd=q.time?G.qStart+q.time*1000:0;G.answers[G.qi]=G.answers[G.qi]||{};
+  saveG();A.sent={};A.hide=false;if(q.imgId)sendImage(q.imgId);sendStateNow();renderPlay();}
+function doReveal(){if(!A.G||A.G.phase!=='question')return;A.G.phase='reveal';saveG();const q=curQ();if(q&&q.aImgId)sendImage(q.aImgId);sendStateNow();renderPlay();}
+function goPhase(ph){A.G.phase=ph;saveG();sendStateNow();renderPlay();}
+function nextQ(){if(A.G.qi+1<A.snap.qs.length){A.G.qi++;startQ();}else goPhase('end');}
+function again(){A.G.run=uid(6);A.G.qi=0;A.G.answers={};goPhase('lobby');}
+function setJudge(id,v){const r=(A.G.answers[A.G.qi]||{})[id];if(r&&r.c!==v){r.c=v;saveG();sendStateSoon();renderPlay();}}
+function kickNow(id){const p=A.G&&A.G.players[id];if(!p)return;delete A.G.players[id];for(const k in A.G.answers)delete A.G.answers[k][id];A.G.kicked[id]=1;saveG();A.net&&A.net.send('s',{t:'kick',pid:id});sendStateSoon();renderPlay();}
+function closeRoom(){if(A.net){A.net.close();A.net=null;}A.G=null;A.snap=null;A.key=null;A.remotes={};store.del('qa-game');if(A.present){A.present=false;if(document.fullscreenElement)try{document.exitFullscreen();}catch(e){}}}
+function adminTick(){
+  if(!A.G)return;const G=A.G;
+  if(G.phase==='question'&&G.qEnd){const el=$('#tm');if(el){const t=timerText(G.qEnd-Date.now());if(el.textContent!==t)el.textContent=t;el.classList.toggle('low',G.qEnd-Date.now()<=5000);}}
+  if(++A.tk%8===0){document.querySelectorAll('[data-seen]').forEach(el=>{const p=G.players[el.dataset.seen];el.classList.toggle('on',!!p&&Date.now()-p.seen<25000);});
+    const rc=$('#rcount');if(rc){const n=remoteCount(),t=n?`${n}대 연결됨`:'연결 안 됨';if(rc.dataset.n!==String(n)){rc.dataset.n=n;rc.innerHTML=`<i class="dot ${n?'on':''}"></i>${t}`;}}}}
+function renderPlay(force){
+  if(A.tab!=='play')return;const v=$('#aview');if(!v)return;
+  if(!A.G){A.stageKey='';document.body.classList.remove('present');v.innerHTML=`<div class="empty-play"><div class="panel"><h2 class="h2s">새 게임 방 만들기</h2><p>문제 ${A.quiz.qs.length}개가 준비되어 있어요. 방을 만들면 참가자가 들어올 QR코드와 PIN이 나와요. 최대 ${MAX}명까지 들어올 수 있어요.</p><button class="btn go big" data-a="room">방 만들기</button></div>
+    <div class="panel"><h2 class="h2s">휴대폰을 리모컨으로 쓰기</h2><p>노트북에서 방을 만들었다면 노트북 화면의 '휴대폰 리모컨' QR을 찍으세요. 또는 그 게임의 PIN을 입력하세요.</p><form class="rjoin" data-form="remote"><input id="rpin" class="bigin" inputmode="numeric" maxlength="7" placeholder="000000" aria-label="게임 PIN"><button class="btn pri big" type="submit">리모컨으로 연결</button></form></div></div>`;return;}
+  if(force||!$('#stage')){v.innerHTML='<div class="play"><section id="stage"></section><aside class="ctrl" id="ctrl"></aside></div>';A.stageKey='';}
+  const st=buildState(),get=id=>A.imgs[id],key=stageKey(st,get);
+  if(key!==A.stageKey){A.stageKey=key;$('#stage').innerHTML=stageHTML(st,get,joinUrl(A.G.pin));}else{const c=$('#cnt');if(c)c.textContent=st.cnt;}
+  if(!A.present)$('#ctrl').innerHTML=ctrlHTML(st);adminTick();}
+function ctrlHTML(st){
+  const G=A.G,x=admExtra(),nextL=x.last?'최종 결과 발표':'다음 문제로',nr=remoteCount(),ph=st.phase;let act;
+  if(ph==='lobby')act=`<button class="btn go big" data-a="start" ${A.quiz.qs.length?'':'disabled'}>게임 시작</button><p class="hint">문제 ${A.quiz.qs.length}개 · 참가자 ${st.pl.length}/${MAX}명. 시작한 뒤에 들어와도 참여할 수 있어요.</p>`;
+  else if(ph==='question')act=`<button class="btn go big" data-a="reveal">정답 공개</button><p class="hint">${x.up?'<b>시간이 끝났어요.</b> ':''}모두 제출하거나 시간이 끝나도, 이 버튼을 눌러야 정답이 공개돼요.</p>`;
+  else if(ph==='reveal')act=`<button class="btn go big" data-a="board">이번 문제 점수 보기</button><button class="btn line" data-a="next">${nextL}</button>`;
+  else if(ph==='board')act=`<button class="btn go big" data-a="next">${nextL}</button>`;
+  else act=`<button class="btn go big" data-a="again">같은 참가자로 다시 하기</button><button class="btn line" data-a="newroom">새 방 만들기</button>`;
+  const showR=/reveal|board/.test(ph);
+  return`<div class="panel"><div class="pinrow"><span>PIN<b>${fmtPin(G.pin)}</b></span><button class="btn sm pri" data-a="present">발표 모드 (전체 화면)</button></div><div class="actions">${act}</div><p class="hint">발표 모드에서는 키보드 → 키나 프레젠터 리모컨으로도 다음 단계로 넘어가요.</p></div>
+  <div class="panel"><div class="h4row"><h4>휴대폰 리모컨</h4><span class="netst dark" id="rcount" data-n="${nr}"><i class="dot ${nr?'on':''}"></i>${nr?`${nr}대 연결됨`:'연결 안 됨'}</span></div>
+    ${ph==='lobby'&&!nr?`<div class="rqr">${QR.svg(remoteUrl(G.pin))}</div>`:''}<p class="hint">관리자 휴대폰으로 QR을 찍고 관리자 코드를 넣으면, 휴대폰에서 게임 시작·정답 공개·점수 보기·다음 문제·채점을 할 수 있어요.</p>${ph==='lobby'&&!nr?'':'<button class="btn sm line" data-a="rqr">리모컨 QR 보기</button>'}</div>
+  ${ph==='question'||ph==='reveal'?answersHTML(st):''}
+  <div class="panel"><h4>점수판 <span class="opt">(총점은 관리자만 보여요)</span></h4>${x.sc.length?x.sc.map(r=>`<div class="srow"><span class="rk">${rankOf(x.sc,'s',r.s)}</span><span class="nm">${esc(r.n)}</span>${ph==='lobby'?`<button class="kick" data-a="kick" data-id="${esc(r.id)}">내보내기</button>`:`${showR&&r.r>0?`<span class="rd">+${num(r.r)}</span>`:''}<span class="sc">${num(r.s)}</span>`}</div>`).join(''):'<p class="hint">아직 참가자가 없어요.</p>'}</div>
+  <div class="ctrl-foot"><a class="lnk2" href="${esc(screenUrl(G.pin))}" target="_blank" rel="noopener">다른 기기에 발표 화면 띄우기 ↗</a><button class="btn sm ghost" data-a="endgame">방 닫기</button></div>`;}
+function answersHTML(st){
+  const q=curQ(),rec=A.G.answers[A.G.qi]||{},ids=Object.keys(A.G.players).sort((a,b)=>A.G.players[a].j-A.G.players[b].j);
+  const rows=ids.map(id=>{const p=A.G.players[id],r=rec[id];let what='<span>기다리는 중…</span>';
+    if(r){what=A.hide&&st.phase==='question'?'<span>제출함</span>':(q.type==='choice'?`<span class="mini" style="background:${COLORS[r.a]};color:${fg(r.a)}">${shape(r.a)}</span><span>${esc(label(q,r.a))}</span>`:`<span>${esc(r.a)}</span>`);what+=`<span class="t">${(r.t/1000).toFixed(1)}초</span>`;}
+    const j=r?`<button class="judge ${r.c?'y':'n'}" data-a="judge" data-id="${esc(id)}" aria-pressed="${r.c}" title="눌러서 판정 바꾸기">${r.c?'정답':'오답'}</button><span class="pts">${r.c?'+'+num(r.p):'0'}</span>`:'<span class="judge w">미제출</span><span class="pts"></span>';
+    return`<div class="arow"><div><div class="who"><i class="dot ${Date.now()-p.seen<25000?'on':''}" data-seen="${esc(id)}"></i>${esc(p.n)}</div><div class="what">${what}</div></div>${j}</div>`;}).join('');
+  const nOk=Object.keys(rec).filter(id=>A.G.players[id]&&rec[id].c).length;
+  return`<div class="panel"><div class="h4row"><h4>답안 확인 <span class="opt">${Object.keys(rec).length}명 제출 · 정답 ${nOk}명</span></h4>${st.phase==='question'?`<button class="btn sm line" data-a="hide" aria-pressed="${A.hide}">${A.hide?'답 보이기':'답 가리기'}</button>`:''}</div>
+  <p class="corr">${esc(corrText(q))}</p>${rows||'<p class="hint">참가자가 없어요.</p>'}<p class="hint">정답/오답 버튼을 누르면 판정이 바뀌고 점수에 바로 반영돼요.</p></div>`;}
+function adminClick(e){
+  const b=e.target.closest('[data-a]');if(!b||b.disabled)return;const a=b.dataset.a,v=b.dataset.v,qs=A.quiz.qs,q=qs[A.sel];
+  const editAll=()=>{saveQuiz();renderItems();renderQEdit();};
+  switch(a){
+    case'tab':A.tab=v;renderAdmin();break;
+    case'logout':ss.del('qa-admin');location.replace(location.pathname+location.search);break;
+    case'sel':A.sel=+b.dataset.i;renderItems();renderQEdit();break;
+    case'addq':qs.splice(A.sel+1,0,newQ());A.sel++;editAll();break;
+    case'mv':{const j=A.sel+(+v);if(j<0||j>=qs.length)break;[qs[A.sel],qs[j]]=[qs[j],qs[A.sel]];A.sel=j;editAll();break;}
+    case'dup':{const c=JSON.parse(JSON.stringify(q));c.id=uid(8);qs.splice(A.sel+1,0,c);A.sel++;editAll();break;}
+    case'delq':confirmBox('문제 삭제',`문제 ${A.sel+1}을(를) 지울까요?`,'삭제',()=>{qs.splice(A.sel,1);A.sel=Math.min(A.sel,qs.length-1);editAll();});break;
+    case'type':q.type=v;editAll();break;
+    case'nch':q.n=+v;if(q.correct>=q.n)q.correct=0;editAll();break;
+    case'ox':q.n=2;q.labels=['O','X','',''];if(q.correct>1)q.correct=0;editAll();break;
+    case'cor':q.correct=+v;editAll();break;
+    case'rmimg':q[v]=null;q[v==='img'?'th':'ath']=null;editAll();break;
+    case'export':exportQuiz();break;
+    case'room':createRoom();break;
+    case'start':startGame();break;
+    case'reveal':doReveal();break;
+    case'board':goPhase('board');break;
+    case'next':nextQ();break;
+    case'again':again();break;
+    case'present':setPresent(true);break;
+    case'unpresent':setPresent(false);break;
+    case'rqr':modal(`<div class="mbox" role="dialog" aria-modal="true"><h3>휴대폰 리모컨</h3><p>관리자 휴대폰 카메라로 찍은 뒤 관리자 코드를 넣으세요.</p><div class="rqr big">${QR.svg(remoteUrl(A.G.pin))}</div><div class="mrow"><button class="btn pri" data-m="ok">닫기</button></div></div>`);break;
+    case'newroom':confirmBox('새 방 만들기','참가자 목록과 점수가 모두 지워지고 새 PIN이 만들어져요.','새 방 만들기',()=>{closeRoom();createRoom();});break;
+    case'endgame':confirmBox('방 닫기','게임을 끝내고 참가자 목록과 점수를 지울까요?','방 닫기',()=>{closeRoom();renderAdmin();});break;
+    case'hide':A.hide=!A.hide;renderPlay();break;
+    case'judge':{const r=(A.G.answers[A.G.qi]||{})[b.dataset.id];if(r)setJudge(b.dataset.id,!r.c);break;}
+    case'kick':{const id=b.dataset.id,p=A.G.players[id];if(!p)break;confirmBox('참가자 내보내기',`${p.n} 님을 내보낼까요?`,'내보내기',()=>kickNow(id));break;}
+  }}
+
+/* ===== 휴대폰 리모컨 (?view=remote) ===== */
+const R={pin:'',key:null,net:null,f:null,hs:'',seq:0,rkey:'',rid:'',pend:null,jp:{},lastIn:0,lastHello:0,deadline:0,dlq:''};
+const rbar=on=>`<header class="rbar"><span class="brand">리모컨</span><span class="pins">PIN ${fmtPin(R.pin)}</span><span class="spacer"></span><span class="netst"><i class="dot ${on?'on':''}"></i>${on?'노트북 연결됨':'연결 중…'}</span></header>`;
+function remoteOpen(pin,code){
+  R.pin=pin;R.rid='r'+uid(8);document.title='리모컨 · 퀴즈 아레나';app.onclick=remoteClick;
+  if(code){remoteStart(code);return;}
+  app.innerHTML=rbar(false)+`<main class="rm"><div class="center"><div class="bigic">${shape(1)}</div><h2>휴대폰 리모컨</h2><p>PIN ${fmtPin(pin)} 게임을 이 휴대폰으로 조종해요.</p><button class="btn go big" data-r="gate">관리자 코드 입력</button></div></main>`;
+  gate(remoteStart);}
+async function remoteStart(code){
+  ss.set('qa-admin',code);
+  if(!CRY){app.innerHTML=rbar(false)+'<main class="rm"><div class="center"><h2>리모컨을 쓸 수 없어요</h2><p>https:// 로 시작하는 주소에서 열어야 리모컨을 쓸 수 있어요.</p></div></main>';return;}
+  R.rkey='';renderRemote();
+  try{R.key=await mkKey(code,R.pin);}catch(e){toast('리모컨을 준비하지 못했어요');return;}
+  R.net=new Net(R.pin,['a'],onRemoteMsg,()=>{if(R.net&&R.net.count())rcmd('hello');renderRemote();},false);
+  setInterval(()=>{if(!R.net)return;R.net.watch();if(Date.now()-R.lastHello>5000)rcmd('hello');retryR();renderRemote();},1500);
+  setInterval(remoteTick,250);}
+async function rcmd(cmd,extra){if(!R.key||!R.net)return;if(cmd==='hello')R.lastHello=Date.now();
+  const body=Object.assign({cmd,ts:Date.now(),nc:uid(12),rid:R.rid,at:R.f?R.f.x.pos:''},extra||{});
+  try{const s=await seal(R.key,body);R.net.send('r',Object.assign({t:'cmd'},s));}catch(e){}}
+async function onRemoteMsg(sub,m){
+  if(sub!=='a'||m.t!=='adm'||!R.key)return;const f=await unseal(R.key,m);if(!f||!f.st||!f.x)return;
+  if(f.hs===R.hs&&f.seq<=R.seq)return;R.hs=f.hs;R.seq=f.seq;R.f=f;R.lastIn=Date.now();
+  const st=f.st;if(st.phase==='question'&&st.q&&st.q.time){const dl=Date.now()+st.q.rem;if(R.dlq!==st.qk||Math.abs(dl-R.deadline)>1200){R.deadline=dl;R.dlq=st.qk;}}
+  if(R.pend&&f.x.pos!==R.pend.at){R.pend=null;try{navigator.vibrate&&navigator.vibrate(25);}catch(e){}}
+  for(const id in R.jp){const a=f.x.ans.find(x=>x.id===id);if(!a||a.c===R.jp[id].c)delete R.jp[id];}
+  renderRemote();}
+function renderRemote(){const f=R.f,alive=!!f&&Date.now()-R.lastIn<12000;
+  const k=JSON.stringify([alive,!!R.key,f&&f.st.phase,f&&f.st.qk,f&&f.st.cnt,f&&f.st.pl.length,f&&f.x,R.pend&&R.pend.cmd,R.jp]);
+  if(k===R.rkey)return;R.rkey=k;app.innerHTML=remoteHTML(alive);remoteTick();}
+function remoteHTML(alive){const f=R.f;
+  if(!f)return rbar(false)+`<main class="rm"><div class="center"><span class="spin w"></span><h2>노트북을 찾는 중…</h2><p>노트북의 관리자 화면에서 PIN ${fmtPin(R.pin)} 게임을 열어 두세요.</p></div></main>`;
+  const st=f.st,x=f.x,q=st.q,ph=st.phase,P=R.pend;
+  const B=(cmd,lbl,cls)=>`<button class="btn ${cls||'go big'}" data-r="${cmd}" ${P?'disabled':''}>${P&&P.cmd===cmd?'<span class="spin"></span> 보내는 중…':lbl}</button>`;
+  const name={lobby:'대기실',question:'문제 진행 중',reveal:'정답 공개 중',board:'문제 점수 보는 중',end:'최종 결과 발표 중'}[ph]||'';
+  let act='';
+  if(ph==='lobby')act=x.nq?B('start','게임 시작 ▶'):'<p class="hint">노트북에서 문제를 먼저 만들어 주세요.</p>';
+  else if(ph==='question')act=B('reveal','정답 공개 ▶');
+  else if(ph==='reveal')act=B('board','이번 문제 점수 보기 ▶')+B('next',x.last?'점수 건너뛰고 최종 결과 ▶':'점수 건너뛰고 다음 문제 ▶','line');
+  else if(ph==='board')act=B('next',x.last?'최종 결과 발표 ▶':'다음 문제 ▶');
+  else act=B('again','같은 참가자로 다시 하기','line big');
+  const all=st.pl.length&&st.cnt===st.pl.length;
+  const info=ph==='question'?`<div class="rinfo"><span>${q&&q.time?'남은 시간 <b id="rtm">--</b>':'시간 제한 없음'}</span><span><b>${st.cnt}</b> / ${st.pl.length}명 제출</span></div>${all?'<p class="rall">모두 제출했어요! 정답 공개를 눌러 주세요.</p>':x.up?'<p class="rall">시간이 끝났어요. 정답 공개를 눌러 주세요.</p>':''}`:'';
+  const head=`<div class="panel rcard"><div class="rph">${name}</div><div class="rq">${ph==='lobby'||ph==='end'?`참가자 ${st.pl.length} / ${MAX}명`:`문제 ${st.qi+1} / ${st.qn}`}</div>${x.qtext?`<div class="rqt">${esc(x.qtext)}</div>`:''}${info}${x.corr?`<p class="corr">${esc(x.corr)}</p>`:''}<div class="actions">${act}</div></div>`;
+  let ans='';
+  if(x.ans.length){const rows=x.ans.map(r=>{const c=R.jp[r.id]?R.jp[r.id].c:r.c;let what='<span>기다리는 중…</span>';
+      if(r.a!=null)what=(q&&q.type==='choice'?`<span class="mini" style="background:${COLORS[r.a]};color:${fg(r.a)}">${shape(r.a)}</span><span>${esc(label(q,r.a))}</span>`:`<span>${esc(r.a)}</span>`)+`<span class="t">${(r.t/1000).toFixed(1)}초</span>`;
+      const j=r.a!=null?`<button class="judge ${c?'y':'n'}" data-r="judge" data-id="${esc(r.id)}" data-c="${c?0:1}">${c?'정답':'오답'}</button><span class="pts">${c?'+'+num(r.p):'0'}</span>`:'<span class="judge w">미제출</span><span class="pts"></span>';
+      return`<div class="arow"><div><div class="who"><i class="dot ${r.on?'on':''}"></i>${esc(r.n)}</div><div class="what">${what}</div></div>${j}</div>`;}).join('');
+    ans=`<div class="panel"><h4>답안 확인 <span class="opt">정답/오답을 눌러 판정을 바꿀 수 있어요</span></h4>${rows}</div>`;}
+  const showR=/reveal|board/.test(ph);
+  const sc=`<div class="panel"><h4>점수판 <span class="opt">(총점은 관리자만 보여요)</span></h4>${x.sc.length?x.sc.map(r=>`<div class="srow"><span class="rk">${rankOf(x.sc,'s',r.s)}</span><span class="nm">${esc(r.n)}</span>${ph==='lobby'?`<button class="kick" data-r="kick" data-id="${esc(r.id)}">내보내기</button>`:`${showR&&r.r>0?`<span class="rd">+${num(r.r)}</span>`:''}<span class="sc">${num(r.s)}</span>`}</div>`).join(''):'<p class="hint">아직 참가자가 없어요.</p>'}</div>`;
+  return rbar(alive)+`<main class="rm">${head}${ans}${sc}</main>`;}
+function remoteClick(e){const b=e.target.closest('[data-r]');if(!b||b.disabled)return;const c=b.dataset.r;
+  if(c==='gate'){gate(remoteStart);return;}
+  if(!R.f)return;
+  if(c==='judge'){const id=b.dataset.id,v=b.dataset.c==='1';R.jp[id]={c:v,t0:Date.now(),last:Date.now()};rcmd('judge',{pid:id,c:v});renderRemote();return;}
+  if(c==='kick'){const id=b.dataset.id,r=R.f.x.sc.find(s=>s.id===id);confirmBox('참가자 내보내기',`${r?r.n:''} 님을 내보낼까요?`,'내보내기',()=>{rcmd('kick',{pid:id});setTimeout(()=>rcmd('kick',{pid:id}),1200);});return;}
+  const at=R.f.x.pos;R.pend={cmd:c,at,t0:Date.now(),last:Date.now()};rcmd(c,{at});renderRemote();}
+function retryR(){const now=Date.now(),p=R.pend;
+  if(p){if(now-p.t0>9000){R.pend=null;toast('노트북이 응답하지 않아요. 노트북 화면과 인터넷 연결을 확인하세요.');}else if(now-p.last>1400){p.last=now;rcmd(p.cmd,{at:p.at});}}
+  for(const id in R.jp){const j=R.jp[id];if(now-j.t0>8000)delete R.jp[id];else if(now-j.last>1400){j.last=now;rcmd('judge',{pid:id,c:j.c});}}}
+function remoteTick(){const el=$('#rtm'),f=R.f;if(!el||!f||!f.st.q||R.dlq!==f.st.qk)return;const ms=R.deadline-Date.now(),t=ms>0?Math.ceil(ms/1000)+'초':'끝';if(el.textContent!==t)el.textContent=t;}
+
+/* ===== 참가자 ===== */
+const V={pin:'',pid:'',name:'',net:null,st:null,my:{},mode:'form',joined:false,deadline:0,dlq:'',key:'',lastHello:0,lastAns:0};
+const me=()=>V.st&&V.st.pl.find(p=>p.id===V.pid);
+function persistP(){const ks=Object.keys(V.my).slice(-40),my={};ks.forEach(k=>my[k]=V.my[k]);V.my=my;store.set('qa-p-'+V.pin,{pid:V.pid,name:V.name,my});}
+function playerOpen(pin){
+  V.pin=pin;const sv=store.get('qa-p-'+pin,null);
+  app.onclick=playerClick;app.onsubmit=playerSubmit;IMG.onReady=()=>renderPlayer();
+  if(sv&&sv.pid&&sv.name){V.pid=sv.pid;V.name=sv.name;V.my=sv.my||{};playerConnect();}else{V.mode='form';renderPlayer(true);setTimeout(()=>{const n=$('#nmin');if(n)n.focus();},60);}
+}
+function playerConnect(){
+  V.mode='connecting';renderPlayer(true);
+  V.net=new Net(V.pin,['s','i'],onPlayerMsg,()=>{if(V.net&&V.net.count())sendHello();},false);
+  setInterval(()=>{if(V.mode==='full'||V.mode==='kicked'||!V.net)return;const now=Date.now();
+    if(now-V.lastHello>(V.joined?8000:2500))sendHello();V.net.watch();
+    const st=V.st,m=me();if(st&&st.phase==='question'&&V.my[st.qk]!=null&&m&&!m.a&&now-V.lastAns>2500){V.lastAns=now;V.net.send('p',{t:'ans',pid:V.pid,qk:st.qk,a:V.my[st.qk]});}
+    needImgs(V.st,V.net,V.pid);},2000);
+  setInterval(tickPlayer,250);
+}
+function sendHello(){V.lastHello=Date.now();V.net.send('p',{t:'hello',pid:V.pid,name:V.name});}
+function onPlayerMsg(sub,m){
+  if(sub==='i'){if(m.t==='img')gotChunk(m);return;}
+  if(m.t==='full'&&m.pid===V.pid&&!V.joined){V.mode='full';V.net.close();V.net=null;store.del('qa-p-'+V.pin);renderPlayer(true);return;}
+  if(m.t==='kick'&&m.pid===V.pid){V.mode='kicked';V.net.close();V.net=null;store.del('qa-p-'+V.pin);renderPlayer(true);return;}
+  if(m.t!=='state'||m.pin!==V.pin)return;
+  V.st=m;const p=me();
+  if(p){V.joined=true;V.mode='in';if(p.n!==V.name){V.name=p.n;persistP();}}else if(V.joined){V.joined=false;sendHello();}
+  if(m.phase==='question'&&m.q&&m.q.time){const dl=Date.now()+m.q.rem;if(V.dlq!==m.qk||Math.abs(dl-V.deadline)>1200){V.deadline=dl;V.dlq=m.qk;}}
+  needImgs(m,V.net,V.pid);renderPlayer();}
+function timeUp(){const st=V.st;return!!(st&&st.phase==='question'&&st.q&&st.q.time&&V.dlq===st.qk&&Date.now()>=V.deadline);}
+function playerKey(){const st=V.st,p=me();if(V.mode!=='in'||!st||!p)return V.mode+(V.joined?1:0);const get=id=>IMG.cache.get(id);
+  return[st.phase,st.qk,V.my[st.qk]!=null?1:0,p.a?1:0,timeUp()?1:0,imgReady(st,get),st.phase==='lobby'?st.pl.length:'',/reveal|board|end/.test(st.phase)?p.c+':'+p.r+':'+st.pl.map(x=>x.id+':'+x.r+':'+(x.s??'')).join(','):''].join('|');}
+function renderPlayer(force){const k=playerKey();if(!force&&k===V.key)return;V.key=k;app.innerHTML=playerHTML();tickPlayer();}
+function tickPlayer(){const st=V.st;if(!st||st.phase!=='question'||!st.q||!st.q.time)return;const bar=$('#pbar');
+  if(bar&&V.dlq===st.qk)bar.style.width=Math.max(0,Math.min(100,(V.deadline-Date.now())/(st.q.time*10)))+'%';if(timeUp())renderPlayer();}
+const ansText=(q,a)=>q.type==='choice'?label(q,a):String(a);
+function playerHTML(){
+  const st=V.st,p=me(),get=id=>IMG.cache.get(id);
+  const wrap=h=>`<main class="ph">${h}</main>`;
+  const top=`<div class="ptop"><span class="me">${esc(V.name)}</span><span class="pins">PIN ${fmtPin(V.pin)}</span>${st&&p&&/question|reveal|board/.test(st.phase)?`<span class="mysc">${st.qi+1} / ${st.qn}</span>`:''}</div>`;
+  if(V.mode==='form')return wrap(`<div class="center"><h2>퀴즈 입장</h2><p>PIN ${fmtPin(V.pin)}</p><form class="pform" data-form="join"><label class="l" for="nmin">닉네임</label><input id="nmin" class="bigin name" maxlength="12" placeholder="화면에 보일 이름" autocomplete="off" enterkeyhint="go"><button class="btn pri big" type="submit">입장하기</button><p class="hint">로그인이나 앱 설치 없이 바로 참여해요.</p></form></div>`);
+  if(V.mode==='full')return wrap(`<div class="center"><div class="bigic">${CROSS}</div><h2>방이 꽉 찼어요</h2><p>이 게임은 최대 ${MAX}명까지 참여할 수 있어요.</p></div>`);
+  if(V.mode==='kicked')return wrap(`<div class="center"><div class="bigic">${CROSS}</div><h2>퇴장되었어요</h2><p>관리자가 이 참가자를 내보냈어요.</p></div>`);
+  if(!st||!p)return wrap(top+`<div class="center"><span class="spin w"></span><h2>입장하는 중…</h2><p>${V.net&&V.net.count()?'관리자 화면의 응답을 기다리고 있어요':'게임 서버에 연결하고 있어요'}</p></div>`);
+  if(st.phase==='lobby')return wrap(top+`<div class="center"><div class="bigic">${CHECK}</div><h2>입장 완료!</h2><p><b>${esc(V.name)}</b> 님, 곧 시작해요.</p><p>참가자 ${st.pl.length}명</p><div class="dots"><i></i><i></i><i></i></div></div>`);
+  const q=st.q;
+  if(st.phase==='question'&&q){const mine=V.my[st.qk];
+    if(mine!=null)return wrap(top+`<div class="center"><div class="bigic">${CHECK}</div><h2>제출 완료!</h2><p>내 답: <b>${esc(ansText(q,mine))}</b></p><p>${p.a?'정답 공개를 기다리는 중이에요':'답을 보내는 중…'}</p><div class="dots"><i></i><i></i><i></i></div></div>`);
+    if(timeUp())return wrap(top+`<div class="center"><h2>시간 종료</h2><p>정답 공개를 기다리는 중이에요</p></div>`);
+    const qbox=(q.img||q.text)?`<div class="pq"><span class="pqn">문제 ${st.qi+1} / ${st.qn}</span>${q.img?`<button class="pimgb" data-a="zoom" data-img="${esc(q.img)}" aria-label="이미지 크게 보기">${imgBlock(q.img,get,'pimg')}</button><span class="ptap">이미지를 누르면 크게 볼 수 있어요</span>`:''}${q.text?`<div class="ptext">${esc(q.text)}</div>`:''}</div>`:`<div class="pq"><span class="pqn">문제 ${st.qi+1} / ${st.qn}</span></div>`;
+    const ans=q.type==='choice'?`<div class="pbtns n${q.n}">${Array.from({length:q.n},(_,k)=>`<button class="pbtn c${k}" style="background:${COLORS[k]}" data-a="pick" data-v="${k}">${shape(k)}<span>${esc(label(q,k))}</span></button>`).join('')}</div>`
+      :`<form class="ptype" data-form="ans"><input id="atext" maxlength="80" placeholder="정답 입력" autocomplete="off" enterkeyhint="send" aria-label="정답 입력"><button class="btn go big" type="submit">제출</button></form>`;
+    return wrap(top+(q.time?'<div class="pbar"><i id="pbar"></i></div>':'')+qbox+ans);}
+  if(st.phase==='reveal'&&q){const rv=st.rv,mine=V.my[st.qk],cls=p.c?'ok':(p.a?'bad':'none');
+    const at=rv.text||rv.accepts||(q.type==='choice'?label(q,rv.correct):'');
+    return wrap(top+`<div class="center"><div class="result ${cls}">${p.c?CHECK:CROSS}<h2>${p.c?'정답!':(p.a?'아쉬워요':'미제출')}</h2><div class="plus">이번 문제 +${num(p.r)}점</div></div>
+    <div class="pans"><span class="albl">정답</span>${rv.img?imgBlock(rv.img,get,''):''}${at?`<div class="atext">${esc(at)}</div>`:''}${mine!=null?`<div class="mine">내 답: ${esc(ansText(q,mine))}</div>`:''}</div>
+    <p>총점은 마지막에 공개돼요</p></div>`);}
+  if(st.phase==='board'){const list=st.pl.slice(0,5),rk=rankOf(st.pl,'r',p.r),inList=list.includes(p);
+    return wrap(top+`<div class="center"><p>문제 ${st.qi+1} 점수</p><div class="rankbig">+${num(p.r)}점</div><p>이번 문제 ${rk}위</p>
+    <div class="plist">${list.map(x=>`<div class="srow ${x.id===V.pid?'me2':''}"><span class="rk">${rankOf(st.pl,'r',x.r)}</span><span class="nm">${esc(x.n)}</span><span class="sc">+${num(x.r)}</span></div>`).join('')}${inList?'':`<div class="srow me2"><span class="rk">${rk}</span><span class="nm">${esc(p.n)}</span><span class="sc">+${num(p.r)}</span></div>`}</div><p>총점은 마지막에 공개돼요</p></div>`);}
+  const rank=rankOf(st.pl,'s',p.s);
+  return wrap(top+`<div class="center"><p>최종 순위</p><div class="rankbig">${rank}위</div><p>총점 ${num(p.s)}점</p>
+  <div class="plist">${st.pl.map(x=>`<div class="srow ${x.id===V.pid?'me2':''}"><span class="rk">${rankOf(st.pl,'s',x.s)}</span><span class="nm">${esc(x.n)}</span><span class="sc">${num(x.s)}</span></div>`).join('')}</div><p>함께해 주셔서 고마워요!</p></div>`);
+}
+function playerClick(e){const b=e.target.closest('[data-a]');if(!b)return;
+  if(b.dataset.a==='zoom'){zoom(IMG.cache.get(b.dataset.img));return;}
+  if(b.dataset.a==='pick')submitAns(+b.dataset.v);}
+function playerSubmit(e){e.preventDefault();const f=e.target.dataset.form;
+  if(f==='join'){const n=$('#nmin').value.replace(/\s+/g,' ').trim().slice(0,12);if(!n){toast('닉네임을 입력하세요');return;}V.name=n;V.pid='p'+uid(12);V.my={};persistP();playerConnect();}
+  if(f==='ans'){const t=$('#atext').value.trim();if(!t){toast('정답을 입력하세요');return;}submitAns(t);}}
+function submitAns(a){const st=V.st;if(!st||st.phase!=='question'||V.my[st.qk]!=null||timeUp())return;
+  V.my[st.qk]=a;persistP();V.lastAns=Date.now();V.net&&V.net.send('p',{t:'ans',pid:V.pid,qk:st.qk,a});try{navigator.vibrate&&navigator.vibrate(30);}catch(e){}renderPlayer();}
+
+/* ===== 다른 기기용 발표 화면 (?view=screen) ===== */
+function screenOpen(pin){
+  V.pin=pin;V.pid='scr'+uid(8);IMG.onReady=renderScreen;
+  app.onclick=e=>{const b=e.target.closest('[data-a=fs]');if(b){try{document.documentElement.requestFullscreen();}catch(err){}}};
+  V.net=new Net(pin,['s','i'],(sub,m)=>{if(sub==='i'){if(m.t==='img')gotChunk(m);return;}if(m.t!=='state'||m.pin!==pin)return;V.st=m;
+    if(m.phase==='question'&&m.q&&m.q.time){const dl=Date.now()+m.q.rem;if(V.dlq!==m.qk||Math.abs(dl-V.deadline)>1200){V.deadline=dl;V.dlq=m.qk;}}needImgs(m,V.net,V.pid);renderScreen();},
+    ()=>{if(V.net&&V.net.count())V.net.send('p',{t:'peek',pid:V.pid});},false);
+  setInterval(()=>{V.net.watch();if(!V.st&&V.net.count())V.net.send('p',{t:'peek',pid:V.pid});needImgs(V.st,V.net,V.pid);},2000);
+  setInterval(()=>{const st=V.st,el=$('#tm');if(el&&st&&st.q&&st.q.time&&V.dlq===st.qk){const t=timerText(V.deadline-Date.now());if(el.textContent!==t)el.textContent=t;el.classList.toggle('low',V.deadline-Date.now()<=5000);}},250);
+  renderScreen();}
+function renderScreen(){const st=V.st,get=id=>IMG.cache.get(id);
+  if(!st){V.key='';app.innerHTML=`<main class="screen"><div class="waitscr"><div><span class="spin w"></span><h2 class="sttl" style="margin-top:16px">발표 화면</h2><p>PIN ${fmtPin(V.pin)} 게임의 관리자 화면을 기다리고 있어요.</p><button class="btn ghost" data-a="fs">전체 화면</button></div></div></main>`;return;}
+  const k=stageKey(st,get);if(k===V.key){const c=$('#cnt');if(c)c.textContent=st.cnt;return;}V.key=k;
+  app.innerHTML=`<main class="screen">${stageHTML(st,get,joinUrl(V.pin))}</main>`;}
+
+/* ===== 시작 ===== */
+window.addEventListener('dragover',e=>e.preventDefault());window.addEventListener('drop',e=>e.preventDefault());
+const pin=(Q.get('pin')||'').replace(/\D/g,'').slice(0,6);
+const savedCode=ss.get('qa-admin'),okCode=savedCode&&hash(savedCode)===ADMIN_HASH?savedCode:null;
+if(location.hash==='#admin'){if(okCode)adminOpen(okCode);else landing(true);}
+else if(pin.length===6&&Q.get('view')==='remote')remoteOpen(pin,okCode);
+else if(pin.length===6&&Q.get('view')==='screen')screenOpen(pin);
+else if(pin.length===6)playerOpen(pin);
+else landing(false);
+}
+</script>
+</body>
+</html>
